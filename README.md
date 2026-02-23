@@ -1,4 +1,4 @@
-# BaCNet: Identifies Cryptic Target Sites in Multidrug-Resistant Bacteria to Accelerate Antibiotic Discovery and Preempt Pandemic Threats
+# Zero-Shot Discovery of Cryptic Antibiotic Targets in Multidrug-Resistant Bacteria using BaCNet
 
 A computational pipeline for **compound–bacterial protein interaction (CPI) prediction** using
 chemical embeddings and machine learning models.
