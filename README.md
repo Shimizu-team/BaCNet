@@ -1,4 +1,5 @@
-# Zero-Shot Discovery of Cryptic Antibiotic Targets in Multidrug-Resistant Bacteria using BaCNet
+# A Bacteria-Centric Deep Learning Framework for Antibacterial Hit Priorization against Multidrug-Resistant Bacteria Using BaCNet
+
 
 A computational pipeline for **compound–bacterial protein interaction (CPI) prediction** using
 chemical embeddings and machine learning models.
@@ -65,6 +66,7 @@ Dependencies
 - Transformers
 - Signaturizer
 - tqdm
+- admet-ai
 
 ⸻
 
@@ -225,6 +227,14 @@ bacnet/
 ├── environment.yaml
 └── README.md
 ```
+
+⸻
+## Preparation of Training Data
+1. Training data were constructed from compound-protein interaction pairs obtained from STITCH (version 5.0). Data corresponding to ESKAPEE bacteria were extracted on the basis of taxonomy IDs (Supplementary Table 13). Protein identifiers were then mapped to the corresponding proteins in STRING (version 10.0).
+2. For each compound, canonical SMILES and desalted SMILES were generated using RDKit.
+3. Redundant records with duplicated sequence-compound pairs were removed.
+4. The combined score was subjected to Box-Cox transformation and subsequently normalized to a range of [0, 1] using min-max scaling, yielding the target values for model training.
+
 
 ## LICENSE
 

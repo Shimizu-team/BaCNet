@@ -13,8 +13,10 @@ Pipeline:
    - ChemBERTa embeddings (optional; disabled by default)
    - Morgan fingerprints (enabled by default)
 
-Only one CLI argument is supported:
-  --input_csv  Path to the input CSV file
+CLI arguments:
+  --input_csv      Path to the input CSV file
+  --admet_ai_csv   Optional ADMET-AI result CSV file
+  --admet_filter   Optional ADMET-AI filter level
 
 Assumptions about the input CSV:
 - Must contain columns: "Name" and "SMILES" (see NAME_COL / SMILES_COL below)
@@ -33,7 +35,7 @@ import sys
 import argparse
 import warnings
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 import pandas as pd
 import numpy as np
@@ -66,6 +68,26 @@ EMB_DIR = os.path.join(OUTPUT_DIR, "Chemical_embeddings")
 EXCLUDE_PAINS = True
 SA_MAX = 5.0
 QED_MIN = 0.5
+
+# ADMET-AI filtering (optional)
+ADMET_AI_METRICS = {
+    "AMES": {
+        "flag_threshold": 0.70,
+        "alart_threshold": 0.90,
+    },
+    "hERG": {
+        "flag_threshold": 0.70,
+        "alart_threshold": 0.90,
+    },
+    "DILI": {
+        "flag_threshold": 0.70,
+        "alart_threshold": 0.90,
+    },
+    "CYP3A4_Veith": {
+        "flag_threshold": 0.70,
+        "alart_threshold": 0.90,
+    },
+}
 
 # Embeddings to generate (fixed)
 RUN_CHEMICAL_CHECKER = True   # Set True if you want to generate Chemical Checker signatures
@@ -111,6 +133,18 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compound filtering + embedding generation (fixed config)")
     parser.add_argument("--input_csv", type=str, required=True,
                         help="Path to input CSV containing compounds (must include Name and SMILES columns).")
+    parser.add_argument(
+        "--admet_ai_csv",
+        type=str,
+        default=None,
+        help="Optional ADMET-AI output CSV path. If provided, ADMET-AI annotations/filtering are applied.",
+    )
+    parser.add_argument(
+        "--admet_filter",
+        choices=["none", "flag", "alart", "alert"],
+        default="none",
+        help="ADMET-AI filtering level. 'alart'/'alert' removes alert compounds, 'flag' removes flag/alert compounds.",
+    )
     return parser.parse_args()
 
 # =============================================================================
@@ -194,6 +228,98 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
 
     print(f"#data after filtering: {len(df_f)}" )
     return df_f
+
+def judge_admet_metric(value: Any, flag_threshold: float, alart_threshold: float) -> str:
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return "missing"
+
+    if pd.isna(numeric_value):
+        return "missing"
+
+    if numeric_value >= alart_threshold:
+        return "alart"
+    if numeric_value >= flag_threshold:
+        return "flag"
+    return "keep"
+
+def load_admet_ai_data(path: str) -> pd.DataFrame:
+    admet_ai_data = pd.read_csv(path)
+    required_columns = ["SMILES", *ADMET_AI_METRICS.keys()]
+    missing_columns = [column for column in required_columns if column not in admet_ai_data.columns]
+    if missing_columns:
+        raise ValueError(f"{missing_columns} is not found in {path}")
+
+    admet_ai_data = admet_ai_data.copy()
+    admet_ai_data["SMILES"] = admet_ai_data["SMILES"].astype(str).str.strip()
+
+    duplicated_smiles = int(admet_ai_data["SMILES"].duplicated().sum())
+    if duplicated_smiles:
+        logger.warning("Duplicated ADMET-AI SMILES were found: %d. Keeping the first record.", duplicated_smiles)
+        admet_ai_data = admet_ai_data.drop_duplicates(subset="SMILES", keep="first")
+
+    return admet_ai_data
+
+def add_admet_ai_judgements(data: pd.DataFrame) -> pd.DataFrame:
+    result_data = data.copy()
+
+    for metric_name, metric_config in ADMET_AI_METRICS.items():
+        judgement_column = f"{metric_name}_judgement"
+        result_data[judgement_column] = result_data[metric_name].apply(
+            lambda value: judge_admet_metric(
+                value,
+                metric_config["flag_threshold"],
+                metric_config["alart_threshold"],
+            )
+        )
+
+    result_data["admet_ai_flag_metrics"] = result_data.apply(
+        lambda row: ",".join(
+            metric_name
+            for metric_name in ADMET_AI_METRICS
+            if row[f"{metric_name}_judgement"] in {"flag", "alart"}
+        ),
+        axis=1,
+    )
+    result_data["admet_ai_alart_metrics"] = result_data.apply(
+        lambda row: ",".join(
+            metric_name
+            for metric_name in ADMET_AI_METRICS
+            if row[f"{metric_name}_judgement"] == "alart"
+        ),
+        axis=1,
+    )
+    result_data["admet_ai_has_flag"] = result_data["admet_ai_flag_metrics"].astype(bool)
+    result_data["admet_ai_has_alart"] = result_data["admet_ai_alart_metrics"].astype(bool)
+
+    return result_data
+
+def apply_admet_filter(data: pd.DataFrame, admet_filter: str) -> pd.DataFrame:
+    if admet_filter in {"alart", "alert"}:
+        return data[~data["admet_ai_has_alart"]].copy()
+
+    if admet_filter == "flag":
+        return data[~data["admet_ai_has_flag"]].copy()
+
+    return data
+
+def merge_admet_ai_results(df: pd.DataFrame, admet_ai_csv: str, admet_filter: str) -> pd.DataFrame:
+    result_data = df.copy()
+    result_data[SMILES_COL] = result_data[SMILES_COL].astype(str).str.strip()
+
+    admet_ai_data = load_admet_ai_data(admet_ai_csv)
+    result_data = result_data.merge(admet_ai_data, on=SMILES_COL, how="inner")
+
+    skipped_count = len(df) - len(result_data)
+    if skipped_count:
+        print(f"Skip: ADMET-AI result was not available for {skipped_count} compounds")
+
+    result_data = add_admet_ai_judgements(result_data)
+    result_data = apply_admet_filter(result_data, admet_filter)
+
+    print(f"#data after ADMET-AI filtering: {len(result_data)}")
+    return result_data
 
 def select_device() -> torch.device:
     if DEVICE == "cpu":
@@ -333,6 +459,10 @@ def main() -> None:
     summarize_filtering(df_with_filters)
 
     df_filtered = apply_filters(df_with_filters)
+
+    if args.admet_ai_csv:
+        print("Applying ADMET-AI annotations and filtering...")
+        df_filtered = merge_admet_ai_results(df_filtered, args.admet_ai_csv, args.admet_filter)
 
     # Save filtered CSV (drop RDKit Mol objects)
     filtered_csv_path = os.path.join(OUTPUT_DIR, "data_with_filters.csv")
