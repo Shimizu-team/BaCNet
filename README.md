@@ -136,12 +136,14 @@ After that, you can specify this directory in the CC_PARAM_DIR variable inside c
 ```bash
 python src/chemical_embedding.py \
     --input examples/example_mols.csv \
-    --output outputs/embeddings.pt
+    --output outputs/embeddings.pt \
+    --admet_filter alert
 ```
 
 `chemical_embedding.py` CLI arguments
 
 - `--input_csv` (required): Path to the input CSV containing compounds. The CSV must include **Name** and **SMILES** columns.
+- `--admet_filter` (optional): Flag compounds based on ADMET properties. Options: `alert`, `flag`, or `none` (default: `none`).
 
 ### Generate protein embeddings
 
