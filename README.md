@@ -1,10 +1,9 @@
-# A Bacteria-Centric Deep Learning Framework for Antibacterial Hit Priorization against Multidrug-Resistant Bacteria Using BaCNet
+# A Bacteria-Centric Deep Learning Framework for Antibacterial Hit Prioritization against Multidrug-Resistant Bacteria Using BaCNet
 
 
 A computational pipeline for **compound–bacterial protein interaction (CPI) prediction** using
 chemical embeddings and machine learning models.
 
-![alt text](<Graphical abstract.png>)
 
 This repository provides tools for:
 
@@ -79,7 +78,7 @@ Dependencies
 
 If you want to generate **ChemicalChecker (CC) / Signaturizer** embeddings locally, you need to download the CC model parameter archives first.
 
-- You can run the download as a batch job if you are on an HPC environment.
+- You can run the download as a batch job if you are in an HPC environment.
 - Runtime can vary depending on network and server load.
 
 **1) Download all model archives (A1–E5)**
@@ -131,19 +130,21 @@ print("signatures:", list(m.signatures.keys()))
 
 > Note: You may need additional packages for the inspection step (e.g., `tensorflow` and `tensorflow_hub`).
 
-After that, you can specify this directory in the CC_PARAM_DIR variable inside chemical_embedding.py to generate ChemicalChecker Signaturizer embeddings.
+After that, specify this directory in the `CC_PARAM_DIR` variable inside `chemical_embedding.py` to generate ChemicalChecker Signaturizer embeddings.
 
 ```bash
 python src/chemical_embedding.py \
-    --input examples/example_mols.csv \
-    --output outputs/embeddings.pt \
+    --input_csv examples/example_mols.csv \
     --admet_filter alert
 ```
+
+The generated embeddings are saved under the `./embeddings` directory.
 
 `chemical_embedding.py` CLI arguments
 
 - `--input_csv` (required): Path to the input CSV containing compounds. The CSV must include **Name** and **SMILES** columns.
-- `--admet_filter` (optional): Flag compounds based on ADMET properties. Options: `alert`, `flag`, or `none` (default: `none`).
+- `--admet_ai_csv` (optional): Path to an ADMET-AI output CSV used for ADMET-based filtering.
+- `--admet_filter` (optional): Flag compounds based on ADMET properties. Options: `none`, `flag`, `alert`, or `alert` (default: `none`).
 
 ### Generate protein embeddings
 
@@ -154,7 +155,7 @@ Protein embeddings should be generated using **ESM-2**.
 - Use **sequence representations** (named `sequence_representations` in the ESM repository) as the embedding.
   - Do **not** use token-level representations (`token_representation`).
 
-The protein embedding file must be a serialized python dictionary of the form:
+The protein embedding file must be a serialized Python dictionary of the form:
 `{protein_name: embedding}`
 
 An example is provided at `examples/target_protein/PBP_ecoli.pt`.
@@ -162,18 +163,19 @@ An example is provided at `examples/target_protein/PBP_ecoli.pt`.
 ### Run BaCNet
 
 ```bash
-python src/search_drug.py --model models/checkpoint.pt \
-    --protein examples/target_protein/PBP_ecoli.pt\
+python src/search_drug.py \
+    --model models/checkpoint.pt \
+    --protein examples/target_protein/PBP_ecoli.pt \
     --chemical examples/chemical_library \
-    --output outputs \
+    --output outputs
 ```
 
 `search_drug.py` CLI arguments
 
-- `--model` (optional): Path to the trained model checkpoint (default: `../model/checkpoint.pt`).
+- `--model` (optional): Path to the trained model checkpoint (default: `models/checkpoint.pt`).
 - `--protein` (required): Path to the target protein embedding file.
 - `--chemical` (required): Base path to the chemical vector files.
-- `--output` (optional): Path to save inference results for each protein (default: `{protein_name}_screening_score.csv`).
+- `--output` (optional): Directory to save per-protein screening CSV files (one file per protein, e.g. `{protein_name}_screening_score.csv`).
 
 ⸻
 
@@ -197,9 +199,9 @@ Required columns:
 
 The model outputs:
 
-- Name: Compound name
-- CPI_score: Predicted interaction scores
-- Ranked compound list
+- `Name`: compound name
+- `CPI_score`: predicted interaction score
+- ranked compound list
 
 ⸻
 
