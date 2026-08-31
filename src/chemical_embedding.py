@@ -73,19 +73,19 @@ QED_MIN = 0.5
 ADMET_AI_METRICS = {
     "AMES": {
         "flag_threshold": 0.70,
-        "alart_threshold": 0.90,
+        "alert_threshold": 0.90,
     },
     "hERG": {
         "flag_threshold": 0.70,
-        "alart_threshold": 0.90,
+        "alert_threshold": 0.90,
     },
     "DILI": {
         "flag_threshold": 0.70,
-        "alart_threshold": 0.90,
+        "alert_threshold": 0.90,
     },
     "CYP3A4_Veith": {
         "flag_threshold": 0.70,
-        "alart_threshold": 0.90,
+        "alert_threshold": 0.90,
     },
 }
 
@@ -141,9 +141,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--admet_filter",
-        choices=["none", "flag", "alart", "alert"],
+        choices=["none", "flag", "alert", "alert"],
         default="none",
-        help="ADMET-AI filtering level. 'alart'/'alert' removes alert compounds, 'flag' removes flag/alert compounds.",
+        help="ADMET-AI filtering level. 'alert'/'alert' removes alert compounds, 'flag' removes flag/alert compounds.",
     )
     return parser.parse_args()
 
@@ -229,7 +229,7 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     print(f"#data after filtering: {len(df_f)}" )
     return df_f
 
-def judge_admet_metric(value: Any, flag_threshold: float, alart_threshold: float) -> str:
+def judge_admet_metric(value: Any, flag_threshold: float, alert_threshold: float) -> str:
     try:
         numeric_value = float(value)
     except (TypeError, ValueError):
@@ -238,8 +238,8 @@ def judge_admet_metric(value: Any, flag_threshold: float, alart_threshold: float
     if pd.isna(numeric_value):
         return "missing"
 
-    if numeric_value >= alart_threshold:
-        return "alart"
+    if numeric_value >= alert_threshold:
+        return "alert"
     if numeric_value >= flag_threshold:
         return "flag"
     return "keep"
@@ -270,7 +270,7 @@ def add_admet_ai_judgements(data: pd.DataFrame) -> pd.DataFrame:
             lambda value: judge_admet_metric(
                 value,
                 metric_config["flag_threshold"],
-                metric_config["alart_threshold"],
+                metric_config["alert_threshold"],
             )
         )
 
@@ -278,26 +278,26 @@ def add_admet_ai_judgements(data: pd.DataFrame) -> pd.DataFrame:
         lambda row: ",".join(
             metric_name
             for metric_name in ADMET_AI_METRICS
-            if row[f"{metric_name}_judgement"] in {"flag", "alart"}
+            if row[f"{metric_name}_judgement"] in {"flag", "alert"}
         ),
         axis=1,
     )
-    result_data["admet_ai_alart_metrics"] = result_data.apply(
+    result_data["admet_ai_alert_metrics"] = result_data.apply(
         lambda row: ",".join(
             metric_name
             for metric_name in ADMET_AI_METRICS
-            if row[f"{metric_name}_judgement"] == "alart"
+            if row[f"{metric_name}_judgement"] == "alert"
         ),
         axis=1,
     )
     result_data["admet_ai_has_flag"] = result_data["admet_ai_flag_metrics"].astype(bool)
-    result_data["admet_ai_has_alart"] = result_data["admet_ai_alart_metrics"].astype(bool)
+    result_data["admet_ai_has_alert"] = result_data["admet_ai_alert_metrics"].astype(bool)
 
     return result_data
 
 def apply_admet_filter(data: pd.DataFrame, admet_filter: str) -> pd.DataFrame:
-    if admet_filter in {"alart", "alert"}:
-        return data[~data["admet_ai_has_alart"]].copy()
+    if admet_filter in {"alert", "alert"}:
+        return data[~data["admet_ai_has_alert"]].copy()
 
     if admet_filter == "flag":
         return data[~data["admet_ai_has_flag"]].copy()
