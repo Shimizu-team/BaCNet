@@ -3,12 +3,17 @@ import torch
 import torch.nn as nn
 import itertools
 from torch.utils.data import Dataset, DataLoader
-import itertools
-import numpy as np
 from dataclasses import dataclass
 from typing import Optional, Union
 
 ArrayLike = Union[np.ndarray, list, tuple]
+
+PROTEIN_EMBEDDING_DIM = 5120
+MORGAN_EMBEDDING_DIM = 1024
+CC_EMBEDDING_DIM = 1280
+CC_FULL_EMBEDDING_DIM = 3200
+CHEMBERTA_EMBEDDING_DIM = 384
+BACNET_INPUT_DIM = 7808
 
 
 
@@ -54,25 +59,50 @@ class CustomDataset_Search_Drug(Dataset):
     
     def __getitem__(self, idx):
         # Create the vector that combines the information of the protein and chemical
-        out_vec = self.target[self.links[idx][0]]
+        protein_name, compound_id = self.links[idx]
+        out_vec = torch.as_tensor(self.target[protein_name], dtype=torch.float32).flatten()
+        if out_vec.numel() != PROTEIN_EMBEDDING_DIM:
+            raise ValueError(
+                f"Invalid ESM-2 dimension for {protein_name}: "
+                f"expected {PROTEIN_EMBEDDING_DIM}, got {out_vec.numel()}"
+            )
+        if not torch.isfinite(out_vec).all():
+            raise ValueError(f"Non-finite ESM-2 values found for {protein_name}")
+
         for key, tmp_vec in self.library.items():
             if key == "cc":
                 cc_idx_tmp = [self.cc_idx[k] for k in self.cc_type]
                 cc_idx_tmp = list(itertools.chain.from_iterable(cc_idx_tmp))
-                try:
-                    cc_selected = tmp_vec[self.links[idx][1]][cc_idx_tmp]
-                except:
-                    cc_selected = tmp_vec[self.links[idx][1]][0] 
-                
-                if isinstance(cc_selected, np.ndarray):
-                    cc_selected= torch.tensor(cc_selected)
-                out_vec = torch.cat([out_vec,
-                                     cc_selected])
+                cc_vector = torch.as_tensor(tmp_vec[compound_id], dtype=torch.float32).flatten()
+                if cc_vector.numel() == CC_EMBEDDING_DIM:
+                    cc_selected = cc_vector
+                elif cc_vector.numel() == CC_FULL_EMBEDDING_DIM:
+                    cc_selected = cc_vector[cc_idx_tmp]
+                else:
+                    raise ValueError(
+                        f"Invalid Chemical Checker dimension for {compound_id}: expected "
+                        f"{CC_EMBEDDING_DIM} or {CC_FULL_EMBEDDING_DIM}, got {cc_vector.numel()}"
+                    )
+                if not torch.isfinite(cc_selected).all():
+                    raise ValueError(f"Non-finite Chemical Checker values found for {compound_id}")
+                out_vec = torch.cat([out_vec, cc_selected])
             else:
-                if isinstance(tmp_vec[self.links[idx][1]], np.ndarray):
-                    tmp_vec[self.links[idx][1]] = torch.tensor(tmp_vec[self.links[idx][1]])
-                out_vec = torch.cat([out_vec,
-                                     tmp_vec[self.links[idx][1]]])
+                embedding = torch.as_tensor(tmp_vec[compound_id], dtype=torch.float32).flatten()
+                expected_dim = MORGAN_EMBEDDING_DIM if key == "mf" else CHEMBERTA_EMBEDDING_DIM
+                if embedding.numel() != expected_dim:
+                    raise ValueError(
+                        f"Invalid {key} dimension for {compound_id}: "
+                        f"expected {expected_dim}, got {embedding.numel()}"
+                    )
+                if not torch.isfinite(embedding).all():
+                    raise ValueError(f"Non-finite {key} values found for {compound_id}")
+                out_vec = torch.cat([out_vec, embedding])
+
+        if out_vec.numel() != BACNET_INPUT_DIM:
+            raise ValueError(
+                f"Invalid concatenated BaCNet input dimension for "
+                f"{protein_name}/{compound_id}: expected {BACNET_INPUT_DIM}, got {out_vec.numel()}"
+            )
 
         """
         return: output vector, (protein name, drug name)
@@ -152,7 +182,7 @@ class BaCNet(nn.Module):
         designation no. of nodes by list which contains 3 elemens
         ex) [1024,128,64]
     """
-    def __init__(self, input_dim, num_features):
+    def __init__(self, input_dim, num_features, dropout_rate=0.01):
         super(BaCNet, self).__init__()
         self.l1 = nn.Sequential(
             nn.Linear(input_dim, num_features[0]),
@@ -170,7 +200,7 @@ class BaCNet(nn.Module):
             nn.ReLU(),
         )
         self.output = nn.Linear(num_features[2], 1)
-        self.dropout = nn.Dropout(0.01)
+        self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, input):
         x = self.l1(input)
@@ -183,16 +213,20 @@ class BaCNet(nn.Module):
 
 
 
-def create_BaCNet():
-    model = BaCNet(input_dim=7808, num_features=[1024, 256, 32])
+def create_BaCNet(dropout_rate=0.01):
+    model = BaCNet(
+        input_dim=BACNET_INPUT_DIM,
+        num_features=[1024, 256, 32],
+        dropout_rate=dropout_rate,
+    )
     return model
 
         
 
-def search_drug(model, device, dataloader):
+def search_drug(model, device, dataloader, ecdf_path):
     model.eval()
     memory = {}
-    ecdf = FrozenECDF.load("models/ecdf_bacnet_v1.npz")
+    ecdf = FrozenECDF.load(ecdf_path)
     with torch.no_grad():
         for data in dataloader:
             x, pair = data

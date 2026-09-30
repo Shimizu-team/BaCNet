@@ -1,0 +1,25 @@
+# BaCNet training configuration.
+# Replace every PLACEHOLDER after preparing the training links and embeddings.
+data:
+  links: PLACEHOLDER
+  protein_embeddings: PLACEHOLDER
+  morgan_embeddings: PLACEHOLDER
+  chemical_checker_embeddings: PLACEHOLDER
+  chemberta_embeddings: PLACEHOLDER
+
+model:
+  hidden_dimensions: [1024, 256, 32]
+  dropout: 0.01
+
+training:
+  epochs: 200
+  batch_size: 32
+  num_workers: 0
+  optimizer: AdamW
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  patience: 10
+  seed: 123
+  device: auto
+
+output_dir: outputs/training_run

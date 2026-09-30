@@ -8,18 +8,18 @@ Pipeline:
 1) Read an input CSV containing compound identifiers and SMILES
 2) Compute filter annotations: PAINS, SA score, QED
 3) Filter compounds by fixed thresholds
-4) Generate embeddings (fixed behavior):
-   - Chemical Checker signatures via Signaturizer (optional; disabled by default)
-   - ChemBERTa embeddings (optional; disabled by default)
-   - Morgan fingerprints (enabled by default)
+4) Generate Chemical Checker, ChemBERTa, and Morgan fingerprint embeddings
+5) Write per-compound embedding failures to embedding_failures.csv
 
 CLI arguments:
   --input_csv      Path to the input CSV file
+  --cc-param-dir   Directory containing A1-A5 and B1-B5 Chemical Checker models
+  --output-dir     Directory in which generated files are written
   --admet_ai_csv   Optional ADMET-AI result CSV file
   --admet_filter   Optional ADMET-AI filter level
 
 Assumptions about the input CSV:
-- Must contain columns: "Name" and "SMILES" (see NAME_COL / SMILES_COL below)
+- Must contain columns: "Compound_ID" and "SMILES" (see NAME_COL / SMILES_COL below)
 
 Notes:
 - SA score uses the common RDKit Contrib implementation (SA_Score/sascorer.py) if available.
@@ -35,6 +35,8 @@ import sys
 import argparse
 import warnings
 import logging
+import hashlib
+import json
 from typing import Dict, Any, Optional
 
 import pandas as pd
@@ -57,12 +59,8 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Input schema
-NAME_COL = "Name"
+NAME_COL = "Compound_ID"
 SMILES_COL = "SMILES"
-
-# Output layout
-OUTPUT_DIR = "./embeddings"
-EMB_DIR = os.path.join(OUTPUT_DIR, "Chemical_embeddings")
 
 # Filtering criteria (fixed)
 EXCLUDE_PAINS = True
@@ -89,21 +87,15 @@ ADMET_AI_METRICS = {
     },
 }
 
-# Embeddings to generate (fixed)
-RUN_CHEMICAL_CHECKER = True   # Set True if you want to generate Chemical Checker signatures
-RUN_CHEMBERTA = True          # Set True if you want to generate ChemBERTa embeddings
-RUN_MORGAN = True             # Morgan fingerprints are lightweight and enabled by default
-
-# Chemical Checker (fixed; only used if RUN_CHEMICAL_CHECKER=True)
-CC_VERSION = "current"
+# Chemical Checker: BaCNet uses these ten 128-dimensional spaces (1,280 total).
 CC_SPACES = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3", "B4", "B5"]
-# For GitHub: keep this relative (e.g., repository contains)
-CC_PARAM_DIR = "path/to/chemical_checker_params" 
+CC_EMBEDDING_DIM = 1280
 
 # ChemBERTa (fixed; only used if RUN_CHEMBERTA=True)
 CHEMBERTA_TOKENIZER = "DeepChem/SmilesTokenizer_PubChem_1M"
 CHEMBERTA_MODEL = "DeepChem/ChemBERTa-77M-MLM"
 CHEMBERTA_BATCH_SIZE = 16
+CHEMBERTA_EMBEDDING_DIM = 384
 DEVICE = "auto"               # "auto", "cpu", or "cuda"
 
 # Morgan fingerprints (fixed; only used if RUN_MORGAN=True)
@@ -115,11 +107,20 @@ MORGAN_RADIUS = 2
 # =============================================================================
 
 
-from signaturizer import Signaturizer  # type: ignore
-HAS_SIGNATURIZER = True
+try:
+    from signaturizer import Signaturizer  # type: ignore
+    HAS_SIGNATURIZER = True
+except ImportError:
+    Signaturizer = None  # type: ignore
+    HAS_SIGNATURIZER = False
 
-from transformers import AutoModel, RobertaTokenizer, pipeline  # type: ignore
-HAS_TRANSFORMERS = True
+try:
+    from transformers import AutoModel, RobertaTokenizer  # type: ignore
+    HAS_TRANSFORMERS = True
+except ImportError:
+    AutoModel = None  # type: ignore
+    RobertaTokenizer = None  # type: ignore
+    HAS_TRANSFORMERS = False
 
 # SA score (try common import locations)
 import sascorer
@@ -132,7 +133,19 @@ import sascorer
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compound filtering + embedding generation (fixed config)")
     parser.add_argument("--input_csv", type=str, required=True,
-                        help="Path to input CSV containing compounds (must include Name and SMILES columns).")
+                        help="Path to input CSV containing Compound_ID and SMILES columns.")
+    parser.add_argument(
+        "--cc-param-dir",
+        type=str,
+        required=False,
+        help="Directory containing the A1-A5 and B1-B5 Chemical Checker model directories.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="embeddings",
+        help="Directory in which filtered data and embedding files are written (default: embeddings).",
+    )
     parser.add_argument(
         "--admet_ai_csv",
         type=str,
@@ -141,10 +154,20 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--admet_filter",
-        choices=["none", "flag", "alert", "alert"],
+        choices=["none", "flag", "alert"],
         default="none",
-        help="ADMET-AI filtering level. 'alert'/'alert' removes alert compounds, 'flag' removes flag/alert compounds.",
+        help="ADMET-AI filtering level. 'alert' removes alert compounds; 'flag' removes flag/alert compounds.",
     )
+    parser.add_argument(
+        "--methods",
+        nargs="+",
+        choices=["chemical_checker", "chemberta", "morgan"],
+        default=["chemical_checker", "chemberta", "morgan"],
+        help="Embedding methods to run (default: all three).",
+    )
+    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default=DEVICE)
+    parser.add_argument("--chemberta-batch-size", type=int, default=CHEMBERTA_BATCH_SIZE)
+    parser.add_argument("--resume", action="store_true", help="Keep valid embeddings already present in output files.")
     return parser.parse_args()
 
 # =============================================================================
@@ -296,7 +319,7 @@ def add_admet_ai_judgements(data: pd.DataFrame) -> pd.DataFrame:
     return result_data
 
 def apply_admet_filter(data: pd.DataFrame, admet_filter: str) -> pd.DataFrame:
-    if admet_filter in {"alert", "alert"}:
+    if admet_filter == "alert":
         return data[~data["admet_ai_has_alert"]].copy()
 
     if admet_filter == "flag":
@@ -321,10 +344,10 @@ def merge_admet_ai_results(df: pd.DataFrame, admet_ai_csv: str, admet_filter: st
     print(f"#data after ADMET-AI filtering: {len(result_data)}")
     return result_data
 
-def select_device() -> torch.device:
-    if DEVICE == "cpu":
+def select_device(device_setting: str = DEVICE) -> torch.device:
+    if device_setting == "cpu":
         return torch.device("cpu")
-    if DEVICE == "cuda":
+    if device_setting == "cuda":
         if not torch.cuda.is_available():
             logger.warning("CUDA requested but not available; falling back to CPU.")
             return torch.device("cpu")
@@ -335,70 +358,144 @@ def select_device() -> torch.device:
 # Embedding generators
 # =============================================================================
 
-def run_chemical_checker_signatures(df: pd.DataFrame) -> None:
+def failure_record(embedding_type: str, name: str, smiles: str, error: Exception) -> Dict[str, str]:
+    return {
+        "Embedding_type": embedding_type,
+        "Compound_ID": name,
+        "SMILES": smiles,
+        "Error_type": type(error).__name__,
+        "Error_message": str(error),
+    }
+
+
+def load_existing_embeddings(path: str, expected_dim: int, resume: bool) -> Dict[str, torch.Tensor]:
+    if not resume or not os.path.isfile(path):
+        return {}
+    values = torch.load(path, map_location="cpu")
+    if not isinstance(values, dict):
+        raise TypeError(f"Existing embedding file must contain a dictionary: {path}")
+    output: Dict[str, torch.Tensor] = {}
+    for key, value in values.items():
+        vector = torch.as_tensor(value).detach().cpu().float().flatten()
+        if vector.numel() == expected_dim and torch.isfinite(vector).all():
+            output[str(key)] = vector
+    return output
+
+
+def run_chemical_checker_signatures(
+    df: pd.DataFrame,
+    cc_param_dir: str,
+    emb_dir: str,
+    resume: bool = False,
+) -> list[Dict[str, str]]:
     if not HAS_SIGNATURIZER:
         raise ImportError("signaturizer is not installed or could not be imported.")
-    if not os.path.isdir(CC_PARAM_DIR):
-        raise FileNotFoundError(f"CC_PARAM_DIR not found: {CC_PARAM_DIR}")
+    if not os.path.isdir(cc_param_dir):
+        raise FileNotFoundError(f"Chemical Checker parameter directory not found: {cc_param_dir}")
 
-    model_paths = [os.path.join(CC_PARAM_DIR, s) for s in CC_SPACES]
+    model_paths = [os.path.join(cc_param_dir, s) for s in CC_SPACES]
     for p in model_paths:
         if not os.path.isdir(p):
             raise FileNotFoundError(f"CC space directory not found: {p}")
 
     print(f"Initializing Signaturizer with spaces: {','.join(CC_SPACES)}")
-    sign = Signaturizer(model_name=model_paths, local=True, version=CC_VERSION)
+    sign = Signaturizer(model_name=model_paths, local=True)
 
-    out: Dict[str, Any] = {}
+    path = os.path.join(emb_dir, "chemical_checker.pt")
+    out = load_existing_embeddings(path, CC_EMBEDDING_DIM, resume)
+    failures: list[Dict[str, str]] = []
     print("Starting Chemical Checker signature generation...")
     for row in tqdm(df.itertuples(index=False), total=len(df), desc="Chemical Checker"):
         name = str(getattr(row, NAME_COL))
         smiles = str(getattr(row, SMILES_COL))
+        if name in out:
+            continue
         try:
             res = sign.predict(smiles)
             # `res.signature` is often shape (1, n_features). Convert to a 1D torch.Tensor.
             sig = np.asarray(res.signature)
             sig = np.squeeze(sig)
-            if sig.ndim != 1:
-                raise ValueError(f"Unexpected signature shape for {name}: {sig.shape}")
+            if sig.shape != (CC_EMBEDDING_DIM,):
+                raise ValueError(
+                    f"Unexpected Chemical Checker shape for {name}: {sig.shape}; "
+                    f"expected ({CC_EMBEDDING_DIM},) from {len(CC_SPACES)} spaces"
+                )
             out[name] = torch.from_numpy(sig).float()
         except Exception as e:
             logger.warning("Failed CC signature for %s: %s", name, str(e))
+            failures.append(failure_record("chemical_checker", name, smiles, e))
 
     if len(out) == 0:
         logger.warning("No Chemical Checker signatures were generated; output file will be empty.")
 
-    path = os.path.join(EMB_DIR, "chemical_checker.pt")
     torch.save(out, path)
     print(f"Saved Chemical Checker signatures to: {path}")
+    return failures
 
 @torch.no_grad()
-def run_chemberta_embeddings(df: pd.DataFrame) -> None:
+def run_chemberta_embeddings(
+    df: pd.DataFrame,
+    emb_dir: str,
+    device_setting: str = DEVICE,
+    batch_size: int = CHEMBERTA_BATCH_SIZE,
+    resume: bool = False,
+) -> list[Dict[str, str]]:
     if not HAS_TRANSFORMERS:
         raise ImportError("transformers is not installed or could not be imported.")
 
-    device = select_device()
+    device = select_device(device_setting)
     print(f"Loading ChemBERTa tokenizer: {CHEMBERTA_TOKENIZER}")
     tokenizer = RobertaTokenizer.from_pretrained(CHEMBERTA_TOKENIZER)
 
     print(f"Loading ChemBERTa model: {CHEMBERTA_MODEL}")
-    model = AutoModel.from_pretrained(CHEMBERTA_MODEL)
+    model = AutoModel.from_pretrained(CHEMBERTA_MODEL).to(device)
     model.eval()
 
-    names = df[NAME_COL].astype(str).tolist()
-    smiles_list = df[SMILES_COL].astype(str).tolist()
+    path = os.path.join(emb_dir, "chemberta-2.pt")
+    out = load_existing_embeddings(path, CHEMBERTA_EMBEDDING_DIM, resume)
+    pending = df[~df[NAME_COL].astype(str).isin(out)].copy()
+    names = pending[NAME_COL].astype(str).tolist()
+    smiles_list = pending[SMILES_COL].astype(str).tolist()
+    failures: list[Dict[str, str]] = []
 
-    out: Dict[str, torch.Tensor] = {}
-    feature_extractor = pipeline("feature-extraction", model=model, tokenizer=tokenizer)
+    def embed_batch(batch_names: list[str], batch_smiles: list[str]) -> None:
+        encoded = tokenizer(
+            batch_smiles,
+            padding=True,
+            truncation=True,
+            return_tensors="pt",
+        )
+        encoded = {key: value.to(device) for key, value in encoded.items()}
+        cls_embeddings = model(**encoded).last_hidden_state[:, 0, :].detach().cpu().float()
+        if cls_embeddings.ndim != 2 or cls_embeddings.shape[1] != CHEMBERTA_EMBEDDING_DIM:
+            raise ValueError(
+                f"Unexpected ChemBERTa output shape: {tuple(cls_embeddings.shape)}; "
+                f"expected (batch_size, {CHEMBERTA_EMBEDDING_DIM})"
+            )
+        for name, embedding in zip(batch_names, cls_embeddings):
+            out[name] = embedding
 
-    for mol in df.itertuples():
-        vec = feature_extractor(mol[2])
-        vec = torch.tensor(vec)
-        out[str(mol[1])] = vec[0][0]
+    for start in tqdm(range(0, len(names), batch_size), desc="ChemBERTa batches"):
+        batch_names = names[start:start + batch_size]
+        batch_smiles = smiles_list[start:start + batch_size]
+        try:
+            embed_batch(batch_names, batch_smiles)
+        except Exception as batch_error:
+            logger.warning(
+                "ChemBERTa batch starting at row %d failed (%s); retrying compounds individually.",
+                start,
+                str(batch_error),
+            )
+            for name, smiles in zip(batch_names, batch_smiles):
+                try:
+                    embed_batch([name], [smiles])
+                except Exception as error:
+                    logger.warning("Failed ChemBERTa embedding for %s: %s", name, str(error))
+                    failures.append(failure_record("chemberta", name, smiles, error))
 
-    path = os.path.join(EMB_DIR, "chemberta-2.pt")
     torch.save(out, path)
     print(f"Saved ChemBERTa embeddings to: {path}")
+    return failures
 
 class MorganFeaturizer:
     def __init__(self, n_bits: int = 2048, radius: int = 2):
@@ -406,35 +503,46 @@ class MorganFeaturizer:
         self.radius = int(radius)
 
     def smiles_to_morgan(self, smiles: str) -> np.ndarray:
-        try:
-            can = Chem.CanonSmiles(smiles)
-            mol = Chem.MolFromSmiles(can)
-            if mol is None:
-                return np.zeros((self.n_bits,), dtype=np.int8)
+        can = Chem.CanonSmiles(smiles)
+        mol = Chem.MolFromSmiles(can)
+        if mol is None:
+            raise ValueError(f"RDKit could not parse SMILES: {smiles}")
 
-            fp = AllChem.GetMorganFingerprintAsBitVect(mol, self.radius, nBits=self.n_bits)
-            arr = np.zeros((self.n_bits,), dtype=np.int8)
-            DataStructs.ConvertToNumpyArray(fp, arr)
-            return arr
-        except Exception:
-            return np.zeros((self.n_bits,), dtype=np.int8)
+        fp = AllChem.GetMorganFingerprintAsBitVect(mol, self.radius, nBits=self.n_bits)
+        arr = np.zeros((self.n_bits,), dtype=np.int8)
+        DataStructs.ConvertToNumpyArray(fp, arr)
+        return arr
 
     def transform_to_tensor(self, smiles: str) -> torch.Tensor:
         return torch.from_numpy(self.smiles_to_morgan(smiles)).float()
 
-def run_morgan_fingerprints(df: pd.DataFrame) -> None:
+def run_morgan_fingerprints(df: pd.DataFrame, emb_dir: str, resume: bool = False) -> list[Dict[str, str]]:
     featurizer = MorganFeaturizer(n_bits=MORGAN_BITS, radius=MORGAN_RADIUS)
-    out: Dict[str, torch.Tensor] = {}
+    path = os.path.join(emb_dir, "morgan_fingerprint.pt")
+    out = load_existing_embeddings(path, MORGAN_BITS, resume)
+    failures: list[Dict[str, str]] = []
 
     print(f"Starting Morgan fingerprint generation (nBits={MORGAN_BITS}, radius={MORGAN_RADIUS})...")
     for row in tqdm(df.itertuples(index=False), total=len(df), desc="MorganFP"):
         name = str(getattr(row, NAME_COL))
         smiles = str(getattr(row, SMILES_COL))
-        out[name] = featurizer.transform_to_tensor(smiles)
+        if name in out:
+            continue
+        try:
+            embedding = featurizer.transform_to_tensor(smiles)
+            if embedding.shape != (MORGAN_BITS,):
+                raise ValueError(
+                    f"Unexpected Morgan fingerprint shape for {name}: {tuple(embedding.shape)}; "
+                    f"expected ({MORGAN_BITS},)"
+                )
+            out[name] = embedding
+        except Exception as error:
+            logger.warning("Failed Morgan fingerprint for %s: %s", name, str(error))
+            failures.append(failure_record("morgan", name, smiles, error))
 
-    path = os.path.join(EMB_DIR, "morgan_fingerprint.pt")
     torch.save(out, path)
     print(f"Saved Morgan fingerprints to: {path}")
+    return failures
 
 # =============================================================================
 # Main
@@ -443,8 +551,10 @@ def run_morgan_fingerprints(df: pd.DataFrame) -> None:
 def main() -> None:
     args = parse_args()
 
-    ensure_dir(OUTPUT_DIR)
-    ensure_dir(EMB_DIR)
+    output_dir = os.path.abspath(args.output_dir)
+    emb_dir = os.path.join(output_dir, "Chemical_embeddings")
+    ensure_dir(output_dir)
+    ensure_dir(emb_dir)
 
     df = pd.read_csv(args.input_csv)
     if NAME_COL not in df.columns or SMILES_COL not in df.columns:
@@ -452,6 +562,15 @@ def main() -> None:
             f"Input CSV must contain columns '{NAME_COL}' and '{SMILES_COL}'. "
             f"Found columns: {list(df.columns)}"
         )
+    if df[NAME_COL].isna().any() or (df[NAME_COL].astype(str).str.strip() == "").any():
+        raise ValueError("Compound_ID must not be empty.")
+    if df[NAME_COL].astype(str).duplicated().any():
+        duplicates = df.loc[df[NAME_COL].astype(str).duplicated(keep=False), NAME_COL].astype(str).unique()
+        raise ValueError(f"Compound_ID values must be unique. Duplicates: {duplicates[:10].tolist()}")
+    if "chemical_checker" in args.methods and not args.cc_param_dir:
+        raise ValueError("--cc-param-dir is required when chemical_checker is selected.")
+    if args.chemberta_batch_size < 1:
+        raise ValueError("--chemberta-batch-size must be at least 1.")
 
     pains_filter = build_pains_filter()
 
@@ -464,25 +583,74 @@ def main() -> None:
         print("Applying ADMET-AI annotations and filtering...")
         df_filtered = merge_admet_ai_results(df_filtered, args.admet_ai_csv, args.admet_filter)
 
+    # Every embedding method consumes exactly the same canonical SMILES.
+    df_filtered[SMILES_COL] = df_filtered["CanonSMILES"]
+
     # Save filtered CSV (drop RDKit Mol objects)
-    filtered_csv_path = os.path.join(OUTPUT_DIR, "data_with_filters.csv")
+    filtered_csv_path = os.path.join(output_dir, "data_with_filters.csv")
     df_filtered.drop(columns=["ROMol"], errors="ignore").to_csv(filtered_csv_path, index=False)
     print(f"Saved filtered CSV to: {filtered_csv_path}")
 
-    # Use canonical SMILES for downstream computations if you want strict consistency:
-    # df_filtered[SMILES_COL] = df_filtered["CanonSMILES"]
+    failures: list[Dict[str, str]] = []
 
-    if RUN_CHEMICAL_CHECKER:
+    if "chemical_checker" in args.methods:
         print("Running Chemical Checker signature generation...")
-        run_chemical_checker_signatures(df_filtered)
+        failures.extend(run_chemical_checker_signatures(df_filtered, args.cc_param_dir, emb_dir, args.resume))
 
-    if RUN_CHEMBERTA:
+    if "chemberta" in args.methods:
         print("Running ChemBERTa embedding generation...")
-        run_chemberta_embeddings(df_filtered)
+        failures.extend(
+            run_chemberta_embeddings(
+                df_filtered,
+                emb_dir,
+                device_setting=args.device,
+                batch_size=args.chemberta_batch_size,
+                resume=args.resume,
+            )
+        )
 
-    if RUN_MORGAN:
+    if "morgan" in args.methods:
         print("Running Morgan fingerprint generation...")
-        run_morgan_fingerprints(df_filtered)
+        failures.extend(run_morgan_fingerprints(df_filtered, emb_dir, args.resume))
+
+    failure_columns = ["Embedding_type", "Compound_ID", "SMILES", "Error_type", "Error_message"]
+    failure_path = os.path.join(output_dir, "embedding_failures.csv")
+    pd.DataFrame(failures, columns=failure_columns).to_csv(failure_path, index=False)
+    print(f"Saved embedding failure report ({len(failures)} failures) to: {failure_path}")
+
+    def digest(path: str) -> str:
+        sha = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                sha.update(chunk)
+        return sha.hexdigest()
+
+    output_files = {
+        "chemical_checker": "chemical_checker.pt",
+        "chemberta": "chemberta-2.pt",
+        "morgan": "morgan_fingerprint.pt",
+    }
+    manifest: Dict[str, Any] = {
+        "input_csv": os.path.abspath(args.input_csv),
+        "input_sha256": digest(args.input_csv),
+        "compound_id_column": NAME_COL,
+        "smiles_source": "CanonSMILES",
+        "methods": args.methods,
+        "dimensions": {"chemical_checker": 1280, "chemberta": 384, "morgan": 1024},
+        "models": {
+            "chemical_checker_spaces": CC_SPACES,
+            "chemberta_tokenizer": CHEMBERTA_TOKENIZER,
+            "chemberta_model": CHEMBERTA_MODEL,
+            "morgan_radius": MORGAN_RADIUS,
+        },
+        "outputs": {},
+        "failures": len(failures),
+    }
+    for method in args.methods:
+        output_path = os.path.join(emb_dir, output_files[method])
+        manifest["outputs"][method] = {"path": os.path.abspath(output_path), "sha256": digest(output_path)}
+    with open(os.path.join(output_dir, "embedding_manifest.json"), "w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, indent=2)
 
     print("Done.")
 

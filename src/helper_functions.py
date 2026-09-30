@@ -86,8 +86,7 @@ def logging_score(model_output, target, output_path):
         save_path = os.path.join(output_path, file_name)
 
         os.makedirs(output_path, exist_ok=True)
-        df.to_csv(save_path)
+        df.to_csv(save_path, index=False)
         output_list.append(save_path)
     return output_list
-
 

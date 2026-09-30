@@ -1,0 +1,23 @@
+data:
+  links: PLACEHOLDER
+  protein_embeddings: PLACEHOLDER
+  morgan_embeddings: PLACEHOLDER
+  chemical_checker_embeddings: PLACEHOLDER
+  chemberta_embeddings: PLACEHOLDER
+
+model:
+  hidden_dimensions: [32, 16, 8]
+  dropout: 0.01
+
+training:
+  epochs: 2
+  batch_size: 4
+  num_workers: 0
+  optimizer: AdamW
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  patience: 2
+  seed: 123
+  device: cpu
+
+output_dir: outputs/training_smoke

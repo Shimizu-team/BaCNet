@@ -74,20 +74,23 @@ Dependencies
 
 ### Generate chemical embeddings
 
-#### (Optional) Download ChemicalChecker Signaturizer parameters
+#### Download the required Chemical Checker Signaturizer parameters
 
 If you want to generate **ChemicalChecker (CC) / Signaturizer** embeddings locally, you need to download the CC model parameter archives first.
 
 - You can run the download as a batch job if you are in an HPC environment.
 - Runtime can vary depending on network and server load.
 
-**1) Download all model archives (A1–E5)**
+BaCNet uses ten Chemical Checker spaces: **A1–A5 and B1–B5**. The remaining
+spaces are not required for BaCNet inference.
+
+**1) Download the ten required model archives (A1–A5 and B1–B5)**
 
 Run the following in any working directory:
 
 ```bash
-# Download all combinations: A–E and 1–5
-for letter in {A..E}; do
+# Download the ten spaces used by BaCNet
+for letter in A B; do
   for num in {1..5}; do
     model="${letter}${num}"
     echo "Downloading ${model}..."
@@ -108,7 +111,7 @@ tar -tzf A1.tar.gz | head -n 20
 
 ```bash
 mkdir -p cc_param  # choose any directory name
-for letter in {A..E}; do
+for letter in A B; do
   for num in {1..5}; do
     model="${letter}${num}"
     mkdir -p "cc_param/${model}"
@@ -130,21 +133,41 @@ print("signatures:", list(m.signatures.keys()))
 
 > Note: You may need additional packages for the inspection step (e.g., `tensorflow` and `tensorflow_hub`).
 
-After that, specify this directory in the `CC_PARAM_DIR` variable inside `chemical_embedding.py` to generate ChemicalChecker Signaturizer embeddings.
+Pass the directory containing the extracted `A1`–`A5` and `B1`–`B5`
+subdirectories with `--cc-param-dir`. Do not edit the source code or place a
+machine-specific absolute path in the repository.
 
 ```bash
 python src/chemical_embedding.py \
     --input_csv examples/example_mols.csv \
+    --cc-param-dir cc_param \
+    --output-dir embeddings \
+    --methods chemical_checker chemberta morgan \
     --admet_filter alert
 ```
 
-The generated embeddings are saved under the `./embeddings` directory.
+The generated embeddings are saved under `embeddings/Chemical_embeddings`.
+Compounds whose embedding generation failed are recorded in
+`embeddings/embedding_failures.csv`, including the embedding type and error
+message.
 
 `chemical_embedding.py` CLI arguments
 
-- `--input_csv` (required): Path to the input CSV containing compounds. The CSV must include **Name** and **SMILES** columns.
+- `--input_csv` (required): Path to the input CSV containing compounds. The CSV must include **Compound_ID** and **SMILES** columns.
+- `--cc-param-dir`: Directory containing the ten Chemical Checker model directories (`A1`–`A5` and `B1`–`B5`). Required only when `chemical_checker` is selected.
+- `--output-dir` (optional): Output directory for filtered data, embeddings, and the failure report (default: `embeddings`).
+- `--methods` (optional): One or more of `chemical_checker`, `chemberta`, and `morgan` (default: all three). This allows methods to run in separate package environments while retaining the same IDs and output contract.
+- `--device` (optional): `auto`, `cpu`, or `cuda` for ChemBERTa (default: `auto`).
+- `--chemberta-batch-size` (optional): ChemBERTa batch size (default: 16).
+- `--resume` (optional): Reuse valid vectors already present in the selected output files.
 - `--admet_ai_csv` (optional): Path to an ADMET-AI output CSV used for ADMET-based filtering.
-- `--admet_filter` (optional): Flag compounds based on ADMET properties. Options: `none`, `flag`, `alert`, or `alert` (default: `none`).
+- `--admet_filter` (optional): Filter compounds based on ADMET properties. Options: `none`, `flag`, or `alert` (default: `none`).
+
+Chemical representations used by BaCNet are generated as follows:
+
+- Morgan fingerprint: 1,024 dimensions (radius 2).
+- Chemical Checker: ten 128-dimensional spaces concatenated in the order A1–A5 and B1–B5, for 1,280 dimensions.
+- ChemBERTa: the 384-dimensional final-layer hidden state of the CLS token from `DeepChem/ChemBERTa-77M-MLM`, using `DeepChem/SmilesTokenizer_PubChem_1M`.
 
 ### Generate protein embeddings
 
@@ -155,8 +178,41 @@ Protein embeddings should be generated using **ESM-2**.
 - Use **sequence representations** (named `sequence_representations` in the ESM repository) as the embedding.
   - Do **not** use token-level representations (`token_representation`).
 
-The protein embedding file must be a serialized Python dictionary of the form:
-`{protein_name: embedding}`
+Use the bundled wrapper to validate sequences, perform residue mean pooling, and
+write a failure report and reproducibility manifest:
+
+```bash
+python src/esm_embedding.py \
+    --input proteins.fasta \
+    --output embeddings/protein_esm2.pt \
+    --model-path /path/to/esm2_t48_15B_UR50D.pt \
+    --device cuda \
+    --batch-size 1 \
+    --max-length 1022 \
+    --long-sequence-policy error
+```
+
+CSV input uses `protein_id` and `sequence` columns. The previous `Name` and
+`Sequence` column names are also accepted for compatibility. Sequence IDs must
+be unique. The default maximum length is 1,022 residues. Long sequences are not
+silently truncated; select `--long-sequence-policy truncate` only when that
+scientific choice is intentional.
+
+For the 15B model with CPU offloading, start the wrapper through `torchrun` so
+the rendezvous settings are supplied by PyTorch instead of being fixed in the
+source:
+
+```bash
+torchrun --standalone --nproc-per-node=1 src/esm_embedding.py \
+    --input proteins.fasta \
+    --output embeddings/protein_esm2.pt \
+    --model-path /path/to/esm2_t48_15B_UR50D.pt \
+    --backend fsdp \
+    --device cuda
+```
+
+The protein embedding file is a serialized Python dictionary of the form
+`{protein_id: 5120-dimensional CPU tensor}`.
 
 An example is provided at `examples/target_protein/PBP_ecoli.pt`.
 
@@ -165,6 +221,7 @@ An example is provided at `examples/target_protein/PBP_ecoli.pt`.
 ```bash
 python src/search_drug.py \
     --model models/checkpoint.pt \
+    --ecdf models/ecdf_bacnet_v1.npz \
     --protein examples/target_protein/PBP_ecoli.pt \
     --chemical examples/chemical_library \
     --output outputs
@@ -173,9 +230,10 @@ python src/search_drug.py \
 `search_drug.py` CLI arguments
 
 - `--model` (optional): Path to the trained model checkpoint (default: `models/checkpoint.pt`).
+- `--ecdf` (optional): Path to the frozen ECDF reference file (default: `models/ecdf_bacnet_v1.npz`).
 - `--protein` (required): Path to the target protein embedding file.
 - `--chemical` (required): Base path to the chemical vector files.
-- `--output` (optional): Directory to save per-protein screening CSV files (one file per protein, e.g. `{protein_name}_screening_score.csv`).
+- `--output` (optional): Directory to save per-protein screening CSV files (default: `outputs`; one file per protein, e.g. `{protein_name}_screening_score.csv`).
 
 ⸻
 
@@ -183,14 +241,14 @@ python src/search_drug.py \
 
 Example input CSV to generate chemical embeddings:
 
-| Name | SMILES       |
-| :--- | :----------- |
+| Compound_ID | SMILES       |
+| :---------- | :----------- |
 | mol1 | CC(=O)O      |
 | mol2 | C1=CC=CC=C1  |
 
 Required columns:
 
-- Name
+- Compound_ID
 - SMILES
 
 ⸻
@@ -199,9 +257,14 @@ Required columns:
 
 The model outputs:
 
-- `Name`: compound name
+- `Compound_ID`: compound identifier (taken from the input `Compound_ID` field)
 - `CPI_score`: predicted interaction score
 - ranked compound list
+
+The BaCNet input has 7,808 dimensions: ESM-2 (5,120), Morgan fingerprint
+(1,024), Chemical Checker (1,280), and ChemBERTa CLS embedding (384). The
+inference code validates every component and stops with an explicit error if a
+dimension or value is invalid.
 
 ⸻
 
@@ -219,6 +282,10 @@ The model outputs:
 bacnet/
 ├── src/                    # Core implementation
 │   ├── chemical_embedding.py
+│   ├── esm_embedding.py
+│   ├── train.py
+│   ├── training.py
+│   ├── training_data.py
 │   ├── search_drug.py
 │   ├── model.py
 │   ├── helper_functions.py
@@ -226,6 +293,8 @@ bacnet/
 │   └── fpscores.pkl.gz
 │
 ├── examples/               # Example input files
+├── configs/                # Training configuration examples
+├── tests/                  # Data-contract and smoke tests
 ├── models/                 # Trained model checkpoints
 ├── LICENSE
 ├── environment.yaml
@@ -238,6 +307,60 @@ bacnet/
 2. For each compound, canonical SMILES and desalted SMILES were generated using RDKit.
 3. Redundant records with duplicated sequence-compound pairs were removed.
 4. The combined score was subjected to Box-Cox transformation and subsequently normalized to a range of [0, 1] using min-max scaling, yielding the target values for model training.
+
+The completed value from step 4 must be supplied in the `target_bct` column.
+The training program uses `target_bct` directly: it does not apply Box-Cox
+transformation, min-max scaling, clipping, thresholding, or any other target
+conversion. Details of the transformation belong to the separate training-data
+construction protocol.
+
+## Train BaCNet
+
+The training environment requires `accelerate` and `pyyaml` in addition to
+PyTorch, NumPy, and Pandas. The ESM wrapper is intentionally usable from a
+separate environment containing `fair-esm`; `fairscale` is additionally needed
+only for `--backend fsdp`. This separation allows embedding environments to be
+managed independently until reproducible environment files are added.
+
+Training links require the following columns:
+
+- `protein_id`: key in the ESM-2 embedding dictionary
+- `compound_id`: shared key in all chemical embedding dictionaries
+- `target_bct`: finite, already transformed regression target
+- `split`: fixed assignment of `train`, `validation`, or `test`
+
+An empty schema placeholder is provided at
+`examples/training/links_placeholder.csv`. Configure real paths in
+`configs/train_example.yaml`, or override them on the command line:
+
+```bash
+accelerate launch src/train.py \
+    --config configs/train_example.yaml \
+    --links data/links.csv \
+    --protein-embeddings data/protein_esm2.pt \
+    --morgan-embeddings data/morgan_fingerprint.pt \
+    --cc-embeddings data/chemical_checker.pt \
+    --chemberta-embeddings data/chemberta-2.pt \
+    --output-dir outputs/bacnet_training_01
+```
+
+Before training, BaCNet validates IDs, finite values, splits, and dimensions
+(5,120 + 1,024 + 1,280 + 384 = 7,808). Validation errors are written to
+`validation_report.csv`. Successful runs save the resolved configuration, input
+checksums, split summary, epoch metrics, best and last resumable checkpoints,
+an inference-compatible `model_best_state_dict.pt`, and held-out test
+predictions. `dataset_row` in the prediction file points to the original links
+CSV row.
+
+Until the real links and embeddings are prepared, run the deterministic,
+test-only CPU smoke workflow:
+
+```bash
+python src/train.py --config configs/train_smoke.yaml --synthetic
+```
+
+Synthetic data verify the software path only and must not be used for scientific
+evaluation.
 
 
 ## LICENSE
