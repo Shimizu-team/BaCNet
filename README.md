@@ -1,4 +1,4 @@
-# A Bacteria-Centric Deep Learning Framework for Antibacterial Hit Prioritization against Multidrug-Resistant Bacteria Using BaCNet
+# A Bacteria-Centric Deep Learning Framework for Prioritizing Antibacterial Compounds against Multidrug-Resistant Bacteria Using BaCNet
 
 
 A computational pipeline for **compound–bacterial protein interaction (CPI) prediction** using
@@ -11,53 +11,54 @@ This repository provides tools for:
 - Running inference for CPI prediction
 - Scoring compounds
 - Searching and ranking candidate molecules
+- Reconstructing the reported two-stage ANNalog/BaCNet prioritization workflow
 
 ---
 
 ## Installation
 
-### Option 1: Conda (Recommended)
-
-1) Create and activate an environment
+### Core BaCNet environment
 
 ```bash
-conda create -n bacnet python=3.11 -y
-conda activate bacnet
-
-conda config --env --add channels conda-forge
-conda config --env --set channel_priority strict
-```
-
-2) Install PyTorch
-
-```bash
-conda install -y pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
-```
-
-3) Install dependencies and other packages
-
-```bash
-conda install -y rdkit pandas numpy matplotlib reportlab pyarrow tqdm transformers
-conda install -y "setuptools<81"
-python -m pip install signaturizer
-```
-
----
-
-### Option 2: Using provided script
-
-```bash
-conda env create -f environment.yaml
+conda env create -f environments/bacnet.yml
 conda activate bacnet
 ```
 
-Note: You may need to edit the script depending on your environment.
+The supplied YAML records the version-pinned environment used for BaCNet
+training, inference, and the architecture-ablation study. It was exported from
+a Linux GPU environment using Python 3.9.18, PyTorch 2.1.0, and CUDA 11.8.
+Build-level and bitwise-identical reproduction across different hardware is not
+guaranteed.
+
+Compound and protein embeddings and ANNalog generation use separate Conda
+environments because their dependency requirements conflict. These environments
+are needed only when regenerating the corresponding intermediate data; they are
+not required when using the published embeddings from Zenodo.
+
+| Task | Environment file | Conda environment |
+| --- | --- | --- |
+| BaCNet training, inference, and ablation | `environments/bacnet.yml` | `bacnet` |
+| ChemBERTa compound embeddings | `environments/chemberta.yml` | `chemberta_env` |
+| Chemical Checker embeddings | `environments/chemical-checker.yml` | `cc_env` |
+| ESM protein embeddings | `environments/esm.yml` | `esm_env` |
+| Morgan fingerprints | `environments/morgan-fingerprint.yml` | `morgan_fingerprint_env` |
+| ANNalog compound generation | `environments/annalog.yml` | `annalog` |
+
+For example, to regenerate ESM embeddings:
+
+```bash
+conda env create -f environments/esm.yml
+conda activate esm_env
+```
+
+See `environments/README.md` for the scope and platform requirements of each
+environment.
 
 ⸻
 
-Dependencies
+Core dependencies
 
-- Python >= 3.10
+- Python 3.9.18
 - 	PyTorch
 - NumPy
 - Pandas
@@ -284,53 +285,86 @@ bacnet/
 │   ├── chemical_embedding.py
 │   ├── esm_embedding.py
 │   ├── train.py
+│   ├── train_ablation.py
 │   ├── training.py
 │   ├── training_data.py
+│   ├── ablation_models.py
+│   ├── aggregate_annalog_results.py
 │   ├── search_drug.py
 │   ├── model.py
 │   ├── helper_functions.py
 │   ├── sascorer.py
 │   └── fpscores.pkl.gz
 │
-├── examples/               # Example input files
+├── examples/               # Example inputs and reported-workflow manifests
+│   ├── annalog_workflow/   # Figure 4 aggregation and traceability files
+│   ├── ablation/           # Supplementary Table 6 reproduction protocol
+│   └── training/           # Training data schema and Zenodo dataset link
 ├── configs/                # Training configuration examples
 ├── tests/                  # Data-contract and smoke tests
 ├── models/                 # Trained model checkpoints
+├── environments/           # Version-pinned Conda environments by workflow stage
 ├── LICENSE
-├── environment.yaml
 └── README.md
 ```
 
 ⸻
 ## Preparation of Training Data
+
+The curated BaCNet interaction dataset and its fixed training, validation, and
+test assignments are available from Zenodo:
+
+- **DOI:** [10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)
+
 1. Training data were constructed from compound-protein interaction pairs obtained from STITCH (version 5.0). Data corresponding to ESKAPEE bacteria were extracted on the basis of taxonomy IDs (Supplementary Table 13). Protein identifiers were then mapped to the corresponding proteins in STRING (version 10.0).
 2. For each compound, canonical SMILES and desalted SMILES were generated using RDKit.
 3. Redundant records with duplicated sequence-compound pairs were removed.
 4. The combined score was subjected to Box-Cox transformation and subsequently normalized to a range of [0, 1] using min-max scaling, yielding the target values for model training.
 
-The completed value from step 4 must be supplied in the `target_bct` column.
-The training program uses `target_bct` directly: it does not apply Box-Cox
+The completed value from step 4 must be supplied in the `stitch_score` column.
+The training program uses `stitch_score` directly: it does not apply Box-Cox
 transformation, min-max scaling, clipping, thresholding, or any other target
 conversion. Details of the transformation belong to the separate training-data
 construction protocol.
 
 ## Train BaCNet
 
-The training environment requires `accelerate` and `pyyaml` in addition to
-PyTorch, NumPy, and Pandas. The ESM wrapper is intentionally usable from a
-separate environment containing `fair-esm`; `fairscale` is additionally needed
-only for `--backend fsdp`. This separation allows embedding environments to be
-managed independently until reproducible environment files are added.
+The version-pinned training environment is provided as
+`environments/bacnet.yml`. The ESM wrapper is intentionally used from the
+separate `environments/esm.yml` environment containing `fair-esm`; `fairscale`
+is additionally needed only for `--backend fsdp`. This separation avoids the
+dependency conflicts between BaCNet training and embedding generation.
 
 Training links require the following columns:
 
 - `protein_id`: key in the ESM-2 embedding dictionary
 - `compound_id`: shared key in all chemical embedding dictionaries
-- `target_bct`: finite, already transformed regression target
+- `stitch_score`: the combined_score obtained from STITCH, divided by 1,000
+- `transformed_score`: the value derived from stitch_score using the Box-Cox transformation and min-max scaling applied to generate the training score
 - `split`: fixed assignment of `train`, `validation`, or `test`
 
-An empty schema placeholder is provided at
-`examples/training/links_placeholder.csv`. Configure real paths in
+The dataset uses a **leave-one-protein-out** split. Unique protein groups are
+divided before interaction rows are selected: 10% of protein groups are first
+assigned to test, and then 10% of the remaining groups are assigned to
+validation. Both operations use seed 123, giving approximately 81% train, 9%
+validation, and 10% test by protein-group count. Interaction-row ratios can
+differ because proteins have different numbers of linked compounds.
+
+The supplied dataset is already split, so `train.py` never performs this
+operation. The reference implementation is retained as
+`reference_leave_one_protein_out_split()` in `src/training_data.py` for
+methodological transparency. The loader also rejects a supplied dataset if the
+same protein group appears across multiple splits. When different IDs represent
+the same amino-acid sequence, provide `protein_group_id`; otherwise
+`protein_id` is used as the grouping key.
+
+The reference function preserves the first-appearance order returned by
+`Series.unique()`, as in the original code. Exact regeneration therefore also
+requires the same input row order and a compatible scikit-learn version. The
+distributed links file remains the authoritative split assignment.
+
+An empty schema example is provided at `examples/training/links_placeholder.csv`.
+After downloading the dataset from Zenodo, configure its local paths in
 `configs/train_example.yaml`, or override them on the command line:
 
 ```bash
@@ -361,6 +395,47 @@ python src/train.py --config configs/train_smoke.yaml --synthetic
 
 Synthetic data verify the software path only and must not be used for scientific
 evaluation.
+
+## Reproduce the architecture-ablation study
+
+The baseline and all five alternative architectures from Supplementary Table 6
+are implemented in `src/ablation_models.py`. The ablation program consumes the
+published train, validation, and test files directly; it does not perform any
+additional sampling or recreate the data split.
+
+Each architecture is trained once using the fixed model seed `123`. The seed is
+reset before every architecture so that all models use the same supplied data
+and training order. Results are single fixed-seed runs, not averages over
+multiple seeds. Minor numerical differences can occur across hardware and
+software environments, and bitwise-identical results are not guaranteed.
+
+See `examples/ablation/README.md` and `configs/ablation.yaml` for the data
+contract, all architecture definitions, the complete command, and the reported
+metrics.
+
+## Reproduce the ANNalog expansion workflow
+
+The Figure 4 analog-expansion workflow is documented in
+`examples/annalog_workflow`. It records the ANNalog generation settings,
+chemical filters, BaCNet scores, within-run ranks, and the three compounds
+selected as parents for second-generation expansion.
+
+Build the combined long-format table from the archived experiment directories:
+
+```bash
+python src/aggregate_annalog_results.py \
+    --manifest examples/annalog_workflow/run_manifest.csv \
+    --selection examples/annalog_workflow/selection_manifest.csv \
+    --data-root /path/to/ANNalog-results \
+    --output examples/annalog_workflow/annalog_candidates.csv \
+    --summary-output examples/annalog_workflow/run_summary.csv
+```
+
+The reported workflow includes the first-generation medium/far runs and five
+second-generation branches. The first-generation near run and the
+`1st_medium_003` far branch were exploratory and are listed separately as
+not included in the Figure 4 analysis. Structural predictions are treated as a
+secondary prioritization aid, not as experimental evidence of binding.
 
 
 ## LICENSE

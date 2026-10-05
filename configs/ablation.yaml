@@ -1,0 +1,41 @@
+# Configuration used for the reported architecture-ablation experiment.
+data:
+  # The three published files are the exact CPI pairs used in the experiment.
+  # train_ablation.py reads them directly and performs no sampling.
+  train_links: PLACEHOLDER
+  validation_links: PLACEHOLDER
+  test_links: PLACEHOLDER
+  protein_embeddings: PLACEHOLDER
+  morgan_embeddings: PLACEHOLDER
+  chemical_checker_embeddings: PLACEHOLDER
+  chemberta_embeddings: PLACEHOLDER
+  columns:
+    protein_id: ProteinID
+    compound_id: ChemID
+    target_bct: transformed_score
+
+variants:
+  - baseline
+  - residual_mlp
+  - projected_concat
+  - projected_residual_fusion
+  - projected_gated_fusion
+  - projected_concat_residual_mlp
+
+model:
+  projection_dimension: 256
+  hidden_dimensions: [1024, 256, 32]
+  dropout: 0.01
+
+training:
+  epochs: 50
+  batch_size: 32
+  num_workers: 0
+  optimizer: AdamW
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  patience: 50
+  seed: 123
+  device: auto
+
+output_dir: outputs/ablation

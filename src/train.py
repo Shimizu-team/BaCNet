@@ -20,6 +20,7 @@ from training_data import (
     create_dataloaders,
     load_training_inputs,
     make_synthetic_inputs,
+    protein_group_column,
     validate_training_inputs,
 )
 
@@ -86,7 +87,11 @@ def main() -> None:
     output_dir = Path(args.output_dir or config.get("output_dir", "outputs/training_run")).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    manifest: dict[str, Any] = {"synthetic": bool(args.synthetic), "target": "target_bct"}
+    manifest: dict[str, Any] = {
+        "synthetic": bool(args.synthetic),
+        "target": "target_bct",
+        "split_strategy": "preassigned_leave_one_protein_out",
+    }
     if args.synthetic:
         inputs = make_synthetic_inputs(seed)
     else:
@@ -123,6 +128,7 @@ def main() -> None:
     )
     split_summary.to_csv(output_dir / "split_summary.csv", index=False)
     manifest["rows"] = len(inputs.links)
+    manifest["protein_group_column"] = protein_group_column(inputs.links)
     manifest["embedding_dimensions"] = {"protein": 5120, "morgan": 1024, "chemical_checker": 1280, "chemberta": 384}
     with (output_dir / "data_manifest.json").open("w", encoding="utf-8") as handle:
         json.dump(manifest, handle, indent=2)

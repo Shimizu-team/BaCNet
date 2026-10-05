@@ -1,9 +1,15 @@
-# Training data placeholders
+# Training data
 
-The real training links and embeddings are intentionally not included yet.
-`target_bct` must be prepared by the separate training-data construction
-protocol. BaCNet training reads this value directly and does not apply Box-Cox
-transformation, min-max scaling, clipping, or thresholding.
+The curated interaction dataset and its fixed training, validation, and test
+assignments are available from Zenodo:
+
+- **DOI:** [10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)
+
+Large training files and embeddings are not stored directly in this Git
+repository. After downloading the deposited data, configure their local paths
+in `configs/train_example.yaml`. BaCNet reads the provided `target_bct` values
+directly and does not apply Box-Cox transformation, min-max scaling, clipping,
+or thresholding during training.
 
 Required links columns:
 
@@ -11,6 +17,19 @@ Required links columns:
 - `compound_id`: common key in all three chemical embedding dictionaries
 - `target_bct`: finite, already transformed regression target
 - `split`: one of `train`, `validation`, or `test`
+
+The split strategy is leave-one-protein-out. Protein groups are assigned as a
+unit, so a protein group must never occur in more than one split. If different
+protein identifiers can represent the same amino-acid sequence, add a
+`protein_group_id` column containing the sequence-equivalence group. Otherwise,
+`protein_id` is used directly.
+
+For transparency, `reference_leave_one_protein_out_split()` in
+`src/training_data.py` records the original procedure: 10% of unique protein
+groups are assigned to test, then 10% of the remaining groups are assigned to
+validation, using seed 123 for both operations. This gives approximately
+81%/9%/10% train/validation/test by protein-group count. The training CLI does
+not call this function because the supplied links are already split.
 
 Optional metadata columns such as `pair_id`, `tax_id`, and `species` are kept
 for traceability. Split assignment should be frozen before training.

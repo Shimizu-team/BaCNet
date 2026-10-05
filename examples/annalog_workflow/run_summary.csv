@@ -1,0 +1,8 @@
+run_id,iteration,parent_id,generation_class,generation_method,temperature,seed,generated_count,filter_pass_count,bacnet_scored_count,selected_parent_count,maximum_bacnet_score,filter_failure_count
+iteration1_medium,1,mianserin,medium,sampling,1.2,42,999,694,694,2,0.941096246,305
+iteration1_far,1,mianserin,far,sampling,1.5,42,996,564,564,1,0.941118479,432
+iteration2_far004_medium,2,1st_far_004,medium,sampling,1.2,42,1000,596,596,0,0.9934155344963074,404
+iteration2_far004_far,2,1st_far_004,far,sampling,1.5,42,997,443,443,0,0.9380563497543336,554
+iteration2_medium001_medium,2,1st_medium_001,medium,sampling,1.2,42,999,811,811,0,1.064542293548584,188
+iteration2_medium001_far,2,1st_medium_001,far,sampling,1.5,42,996,651,651,0,0.997645378112793,345
+iteration2_medium003_medium,2,1st_medium_003,medium,sampling,1.2,42,1000,835,835,0,0.9617595672607422,165
