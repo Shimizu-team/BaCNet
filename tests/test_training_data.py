@@ -24,11 +24,11 @@ class TrainingDataTest(unittest.TestCase):
         self.assertEqual(features.numel(), BACNET_INPUT_DIM)
         self.assertEqual(target.ndim, 0)
 
-    def test_target_bct_is_not_transformed(self):
+    def test_transformed_score_is_not_transformed_again(self):
         inputs = make_synthetic_inputs()
         dataset = BaCNetTrainingDataset(inputs.links, inputs)
         _, target, _ = dataset[3]
-        self.assertAlmostEqual(float(target), float(inputs.links.iloc[3]["target_bct"]))
+        self.assertAlmostEqual(float(target), float(inputs.links.iloc[3]["transformed_score"]))
 
     def test_reference_leave_one_protein_out_is_deterministic_and_disjoint(self):
         inputs = make_synthetic_inputs()

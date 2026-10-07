@@ -1,1 +1,1 @@
-pair_id,protein_id,compound_id,target_bct,split,tax_id,species
+pair_id,protein_id,compound_id,transformed_score,split,tax_id,species

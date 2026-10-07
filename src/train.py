@@ -26,7 +26,7 @@ from training_data import (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train BaCNet using precomputed target_bct values.")
+    parser = argparse.ArgumentParser(description="Train BaCNet using precomputed transformed_score values.")
     parser.add_argument("--config", default="configs/train_example.yaml")
     parser.add_argument("--links")
     parser.add_argument("--protein-embeddings")
@@ -89,7 +89,7 @@ def main() -> None:
 
     manifest: dict[str, Any] = {
         "synthetic": bool(args.synthetic),
-        "target": "target_bct",
+        "target": "transformed_score",
         "split_strategy": "preassigned_leave_one_protein_out",
     }
     if args.synthetic:
@@ -124,7 +124,11 @@ def main() -> None:
     split_summary = (
         inputs.links.assign(split=inputs.links["split"].astype(str).str.lower())
         .groupby("split", as_index=False)
-        .agg(pairs=("target_bct", "size"), proteins=("protein_id", "nunique"), compounds=("compound_id", "nunique"))
+        .agg(
+            pairs=("transformed_score", "size"),
+            proteins=("protein_id", "nunique"),
+            compounds=("compound_id", "nunique"),
+        )
     )
     split_summary.to_csv(output_dir / "split_summary.csv", index=False)
     manifest["rows"] = len(inputs.links)

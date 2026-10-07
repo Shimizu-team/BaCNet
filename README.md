@@ -24,12 +24,6 @@ conda env create -f environments/bacnet.yml
 conda activate bacnet
 ```
 
-The supplied YAML records the version-pinned environment used for BaCNet
-training, inference, and the architecture-ablation study. It was exported from
-a Linux GPU environment using Python 3.9.18, PyTorch 2.1.0, and CUDA 11.8.
-Build-level and bitwise-identical reproduction across different hardware is not
-guaranteed.
-
 Compound and protein embeddings and ANNalog generation use separate Conda
 environments because their dependency requirements conflict. These environments
 are needed only when regenerating the corresponding intermediate data; they are
@@ -135,8 +129,7 @@ print("signatures:", list(m.signatures.keys()))
 > Note: You may need additional packages for the inspection step (e.g., `tensorflow` and `tensorflow_hub`).
 
 Pass the directory containing the extracted `A1`–`A5` and `B1`–`B5`
-subdirectories with `--cc-param-dir`. Do not edit the source code or place a
-machine-specific absolute path in the repository.
+subdirectories with `--cc-param-dir`.
 
 ```bash
 python src/chemical_embedding.py \
@@ -148,6 +141,8 @@ python src/chemical_embedding.py \
 ```
 
 The generated embeddings are saved under `embeddings/Chemical_embeddings`.
+The complete PAINS, SA, and QED decisions, including failure reasons, are saved
+to `embeddings/filter_annotations.csv`.
 Compounds whose embedding generation failed are recorded in
 `embeddings/embedding_failures.csv`, including the embedding type and error
 message.
@@ -193,24 +188,10 @@ python src/esm_embedding.py \
     --long-sequence-policy error
 ```
 
-CSV input uses `protein_id` and `sequence` columns. The previous `Name` and
-`Sequence` column names are also accepted for compatibility. Sequence IDs must
+CSV input uses `protein_id` and `sequence` columns. Sequence IDs must
 be unique. The default maximum length is 1,022 residues. Long sequences are not
 silently truncated; select `--long-sequence-policy truncate` only when that
 scientific choice is intentional.
-
-For the 15B model with CPU offloading, start the wrapper through `torchrun` so
-the rendezvous settings are supplied by PyTorch instead of being fixed in the
-source:
-
-```bash
-torchrun --standalone --nproc-per-node=1 src/esm_embedding.py \
-    --input proteins.fasta \
-    --output embeddings/protein_esm2.pt \
-    --model-path /path/to/esm2_t48_15B_UR50D.pt \
-    --backend fsdp \
-    --device cuda
-```
 
 The protein embedding file is a serialized Python dictionary of the form
 `{protein_id: 5120-dimensional CPU tensor}`.
@@ -277,6 +258,32 @@ dimension or value is invalid.
 
 ⸻
 
+## Reported-result-to-resource map
+
+All paths in this table are relative to the repository root. The table
+distinguishes executable workflows from documentation-only resources. “Not
+deposited” means that the current repository does not contain a dedicated
+input, script, or expected-output artifact for that result.
+
+| Reported result | Input data and identifiers | Script or implementation | Configuration and environment |
+| --- | --- | --- | --- |
+| Figure 1: BaCNet training and evaluation using the fixed protein-disjoint splits | Zenodo dataset ([10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)); schema and split contract in `examples/training/README.md` | `src/train.py`, `src/training.py`, `src/training_data.py`, and model definition in `src/model.py` | `configs/train_example.yaml`; `environments/bacnet.yml` |
+| Supplementary Table 6: baseline and five architecture-ablation models | Zenodo ablation split files; expected filenames, row counts, and SHA-256 digests in `examples/ablation/README.md` and `examples/ablation/data_files.sha256` | `src/ablation_models.py`, `src/train_ablation.py`, `src/training.py`, and `src/training_data.py` | `configs/ablation.yaml`; `environments/bacnet.yml`; model seed 123 |
+| Figures 2–3: BaCNet scoring of the mianserin–*E. coli* PBP1A case study | Mianserin SMILES in `examples/example_mols.csv`; PBP1A embedding in `examples/target_protein/PBP_ecoli.pt`; compound embeddings in `examples/chemical_library/` | `src/chemical_embedding.py`, `src/esm_embedding.py`, and `src/search_drug.py` | `models/checkpoint.pt`; `models/ecdf_bacnet_v1.npz`; embedding environments in `environments/` |
+| Figure 3, Figure 4c–e, and Supplementary Figures 9–10: Boltz-2 complex predictions | YAML inputs in `examples/structural_analysis/boltz2/inputs/figure3/` and `examples/structural_analysis/boltz2/inputs/figure4_figureS9_S10/` | `examples/structural_analysis/boltz2/run_boltz_predict.sh` | Boltz-2 2.1.1 settings and the figure-to-input map in `examples/structural_analysis/boltz2/README.md` |
+| Figure 4: ANNalog expansion, chemical filtering, selection, and BaCNet-score aggregation | `examples/annalog_workflow/run_manifest.csv`, `selection_manifest.csv`, and the external experiment directories described in `examples/annalog_workflow/README.md` | `src/run_annalog_bacnet.py` for first-generation medium/far generation and ranking; `src/aggregate_annalog_results.py` for the reported two-generation aggregation | `configs/annalog_bacnet_example.yaml`; separate ANNalog, embedding, and BaCNet environments in `environments/`; reported settings and seeds in `run_manifest.csv` |
+| External 15-target benchmark | Not deposited in the current repository | Not deposited in the current repository | Not deposited in the current repository |
+| BindingDB quantitative-affinity comparison | `BindingDB_All_202609_tsv.zip`, obtained separately; construction criteria in `examples/external_datasets/README.md` | `src/prepare_bindingdb.py` | `environments/bacnet.yml`; current UniProt canonical sequences are retrieved through the UniProt REST API |
+| DrugBank approved-compound screening library | DrugBank 5.1.12 XML obtained separately under an Academic License; construction criteria in `examples/external_datasets/README.md` | `src/prepare_drugbank.py` | `environments/bacnet.yml`; RDKit PAINS A/B/C catalogs |
+
+The training and ablation programs calculate SHA-256 checksums for supplied
+input files and store them in each run's `data_manifest.json`. The static
+`examples/ablation/data_files.sha256` file records the authoritative digests of
+the three ablation split files. The synthetic commands documented below are
+software-path smoke tests only and do not reproduce the scientific results.
+
+⸻
+
 ## Repository Structure
 
 ```text
@@ -290,6 +297,12 @@ bacnet/
 │   ├── training_data.py
 │   ├── ablation_models.py
 │   ├── aggregate_annalog_results.py
+│   ├── run_annalog_generation.py
+│   ├── prepare_annalog_compounds.py
+│   ├── assemble_annalog_embeddings.py
+│   ├── run_annalog_bacnet.py
+│   ├── prepare_bindingdb.py
+│   ├── prepare_drugbank.py
 │   ├── search_drug.py
 │   ├── model.py
 │   ├── helper_functions.py
@@ -299,6 +312,8 @@ bacnet/
 ├── examples/               # Example inputs and reported-workflow manifests
 │   ├── annalog_workflow/   # Figure 4 aggregation and traceability files
 │   ├── ablation/           # Supplementary Table 6 reproduction protocol
+│   ├── external_datasets/  # BindingDB and DrugBank construction procedures
+│   ├── structural_analysis/ # Boltz-2 inputs and documented prediction settings
 │   └── training/           # Training data schema and Zenodo dataset link
 ├── configs/                # Training configuration examples
 ├── tests/                  # Data-contract and smoke tests
@@ -316,16 +331,27 @@ test assignments are available from Zenodo:
 
 - **DOI:** [10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)
 
-1. Training data were constructed from compound-protein interaction pairs obtained from STITCH (version 5.0). Data corresponding to ESKAPEE bacteria were extracted on the basis of taxonomy IDs (Supplementary Table 13). Protein identifiers were then mapped to the corresponding proteins in STRING (version 10.0).
-2. For each compound, canonical SMILES and desalted SMILES were generated using RDKit.
+1. Training data were constructed from compound-protein interaction pairs obtained from STITCH (version 5.0). Data corresponding to ESKAPEE bacteria were extracted on the basis of taxonomy IDs (Supplementary Table 21). Protein identifiers were then mapped to the corresponding proteins in STRING (version 10.0).
+2. For each compound, canonical SMILES was generated using RDKit.
 3. Redundant records with duplicated sequence-compound pairs were removed.
-4. The combined score was subjected to Box-Cox transformation and subsequently normalized to a range of [0, 1] using min-max scaling, yielding the target values for model training.
+4. The STITCH `combined_score` was divided by 100 to obtain `stitch_score`.
+5. `stitch_score` was subjected to Box-Cox transformation and subsequently normalized to a range of [0, 1] using min-max scaling, yielding `transformed_score`, the target used for model training.
 
-The completed value from step 4 must be supplied in the `stitch_score` column.
-The training program uses `stitch_score` directly: it does not apply Box-Cox
+The completed value from step 5 must be supplied in the `transformed_score`
+column. The Zenodo training files provide this column. The training program uses
+`transformed_score` directly: it does not apply Box-Cox
 transformation, min-max scaling, clipping, thresholding, or any other target
 conversion. Details of the transformation belong to the separate training-data
 construction protocol.
+
+## External Dataset Preparation
+
+The reconstruction procedures for the *P. aeruginosa* BindingDB quantitative-
+affinity datasets and the DrugBank 5.1.12 approved-compound library are
+documented in `examples/external_datasets/README.md`. The source databases are
+not redistributed. `src/prepare_bindingdb.py` and `src/prepare_drugbank.py`
+reproduce the selection and canonicalization steps after the appropriately
+licensed source files have been obtained.
 
 ## Train BaCNet
 
@@ -339,9 +365,11 @@ Training links require the following columns:
 
 - `protein_id`: key in the ESM-2 embedding dictionary
 - `compound_id`: shared key in all chemical embedding dictionaries
-- `stitch_score`: the combined_score obtained from STITCH, divided by 1,000
-- `transformed_score`: the value derived from stitch_score using the Box-Cox transformation and min-max scaling applied to generate the training score
+- `transformed_score`: the Box-Cox-transformed and min-max-scaled target deposited on Zenodo and used directly for training
 - `split`: fixed assignment of `train`, `validation`, or `test`
+
+When retained for provenance, `stitch_score` denotes the original STITCH
+`combined_score` divided by 1000. It is not read by the training program.
 
 The dataset uses a **leave-one-protein-out** split. Unique protein groups are
 divided before interaction rows are selected: 10% of protein groups are first
@@ -357,11 +385,6 @@ methodological transparency. The loader also rejects a supplied dataset if the
 same protein group appears across multiple splits. When different IDs represent
 the same amino-acid sequence, provide `protein_group_id`; otherwise
 `protein_id` is used as the grouping key.
-
-The reference function preserves the first-appearance order returned by
-`Series.unique()`, as in the original code. Exact regeneration therefore also
-requires the same input row order and a compatible scikit-learn version. The
-distributed links file remains the authoritative split assignment.
 
 An empty schema example is provided at `examples/training/links_placeholder.csv`.
 After downloading the dataset from Zenodo, configure its local paths in
@@ -393,21 +416,15 @@ test-only CPU smoke workflow:
 python src/train.py --config configs/train_smoke.yaml --synthetic
 ```
 
-Synthetic data verify the software path only and must not be used for scientific
-evaluation.
-
 ## Reproduce the architecture-ablation study
 
 The baseline and all five alternative architectures from Supplementary Table 6
 are implemented in `src/ablation_models.py`. The ablation program consumes the
-published train, validation, and test files directly; it does not perform any
-additional sampling or recreate the data split.
+published train, validation, and test files directly.
 
 Each architecture is trained once using the fixed model seed `123`. The seed is
 reset before every architecture so that all models use the same supplied data
-and training order. Results are single fixed-seed runs, not averages over
-multiple seeds. Minor numerical differences can occur across hardware and
-software environments, and bitwise-identical results are not guaranteed.
+and training order.
 
 See `examples/ablation/README.md` and `configs/ablation.yaml` for the data
 contract, all architecture definitions, the complete command, and the reported
@@ -419,6 +436,28 @@ The Figure 4 analog-expansion workflow is documented in
 `examples/annalog_workflow`. It records the ANNalog generation settings,
 chemical filters, BaCNet scores, within-run ranks, and the three compounds
 selected as parents for second-generation expansion.
+
+### Run the first generation from Mianserin to BaCNet ranking
+
+Edit `configs/annalog_bacnet_example.yaml` to specify the ANNalog checkpoint,
+ANNalog vocabulary, and Chemical Checker parameter directory. Then run:
+
+```bash
+python src/run_annalog_bacnet.py \
+    --config configs/annalog_bacnet_example.yaml
+```
+
+The wrapper calls the separate Conda environments with `conda run` and performs
+the following steps in sequence: seeded ANNalog medium/far generation from
+Mianserin, canonicalization and deduplication, PAINS/SA/QED filtering, Morgan,
+Chemical Checker, and ChemBERTa embedding, PBP1A BaCNet inference, and final
+ranking. Use `--resume` to reuse completed stages or `--dry-run` to inspect the
+commands. Outputs, failure tables, logs, checksums, and the resolved workflow
+manifest are written below the configured `output_dir`.
+
+This wrapper intentionally stops after first-generation ranking. Selection of
+parents for the second generation used complementary complex-structure
+assessment and is not automated.
 
 Build the combined long-format table from the archived experiment directories:
 
@@ -436,6 +475,16 @@ second-generation branches. The first-generation near run and the
 `1st_medium_003` far branch were exploratory and are listed separately as
 not included in the Figure 4 analysis. Structural predictions are treated as a
 secondary prioritization aid, not as experimental evidence of binding.
+
+## Reproduce the Boltz-2 complex predictions
+
+The Boltz input YAML files used for the currently collected Figure 3, Figure 4,
+Supplementary Figure 9, and Supplementary Figure 10 complexes are provided in
+`examples/structural_analysis/boltz2`.
+
+See `examples/structural_analysis/boltz2/README.md` for the figure-to-input map,
+the Boltz-2 version and exact command-line settings, and how the MSA generated
+by the Boltz-2 MSA server was reused to reduce computation.
 
 
 ## LICENSE

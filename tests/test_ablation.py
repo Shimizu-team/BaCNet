@@ -59,11 +59,11 @@ class AblationTest(unittest.TestCase):
                 column_names={
                     "protein_id": "ProteinID",
                     "compound_id": "ChemID",
-                    "target_bct": "transformed_score",
+                    "transformed_score": "transformed_score",
                 },
             )
             self.assertEqual(inputs.links["split"].tolist(), ["train", "validation", "test"])
-            self.assertEqual(inputs.links["target_bct"].tolist(), [0.1, 0.2, 0.3])
+            self.assertEqual(inputs.links["transformed_score"].tolist(), [0.1, 0.2, 0.3])
 
 
 if __name__ == "__main__":

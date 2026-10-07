@@ -12,7 +12,7 @@ data:
   columns:
     protein_id: ProteinID
     compound_id: ChemID
-    target_bct: transformed_score
+    transformed_score: transformed_score
 
 variants:
   - baseline

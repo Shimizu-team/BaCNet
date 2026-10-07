@@ -15,15 +15,13 @@ The deposited dataset is available from Zenodo:
 - **DOI:** [10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)
 
 The files contain 4,000,000 training pairs, 200,000 validation pairs, and
-200,000 test pairs. Their authoritative SHA-256 digests are recorded in
-`data_files.sha256` so that a downloaded data release can be verified before
-training.
+200,000 test pairs.
 
 The distributed files use these columns:
 
 - `ProteinID`: key in the ESM-2 embedding dictionary
 - `ChemID`: shared key in the three chemical embedding dictionaries
-- `transformed_score`: prepared `target_bct` regression target
+- `transformed_score`: prepared regression target used directly by BaCNet
 
 The column mapping is explicit in `configs/ablation.yaml`. The program adds the
 canonical internal names and split labels based on the source filename.
@@ -50,10 +48,6 @@ Each architecture was trained once using the fixed model seed `123`. Before
 each architecture is constructed, the Python, NumPy, PyTorch, CUDA, and
 DataLoader random states are reset to this seed. This ensures a reproducible
 single-run comparison using the same supplied data and training order.
-
-Small numerical differences may occur with different hardware, CUDA, cuDNN,
-PyTorch, or other library versions. Bitwise-identical results across platforms
-are therefore not guaranteed.
 
 ## Run the experiment
 
@@ -95,7 +89,3 @@ python src/train_ablation.py \
 | `projected_residual_fusion` | 0.657073 | 0.621553 | 0.413813 | 0.046195 |
 | `projected_gated_fusion` | 0.654217 | 0.611045 | 0.411924 | 0.046344 |
 | `projected_concat_residual_mlp` | 0.697348 | 0.665630 | 0.466045 | 0.042079 |
-
-These are individual results from the fixed-seed run, not means over multiple
-random seeds. Full-precision values, row counts, parameter counts, and selected
-epochs are provided in `reported_results.csv`.

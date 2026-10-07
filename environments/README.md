@@ -6,9 +6,7 @@ packages are not mutually compatible. Only `bacnet.yml` is required for BaCNet
 training, inference, and the architecture-ablation study.
 
 The other YAML files are required only when regenerating the corresponding
-embeddings or ANNalog compounds. Users of the published embeddings and curated
-data from [Zenodo](https://doi.org/10.5281/zenodo.23158020) do not need those
-additional environments.
+embeddings or ANNalog compounds.
 
 | File | Purpose | Environment name | Recorded Python / accelerator stack |
 | --- | --- | --- | --- |
@@ -25,13 +23,3 @@ Create the required environment from the repository root. For example:
 conda env create -f environments/bacnet.yml
 conda activate bacnet
 ```
-
-The YAML files contain pinned package versions but omit build identifiers and
-machine-specific prefixes. They are intended to reconstruct the reported
-software stacks while remaining more portable than platform-specific explicit
-Conda lock files. Exact bitwise equality across hardware, operating systems,
-GPU drivers, and Conda solver versions is not guaranteed.
-
-These environments were recorded on Linux. The CUDA-enabled environments may
-require adjustment when used on CPU-only machines, macOS, or systems with an
-incompatible NVIDIA driver.

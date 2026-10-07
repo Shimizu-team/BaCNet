@@ -1,6 +1,6 @@
 """Training data loading and validation for BaCNet.
 
-``target_bct`` is treated as an already transformed training target.  This
+``transformed_score`` is treated as an already transformed training target. This
 module deliberately performs no Box-Cox transformation, scaling, clipping, or
 thresholding.
 """
@@ -25,7 +25,7 @@ from model import (
 )
 
 
-REQUIRED_LINK_COLUMNS = {"protein_id", "compound_id", "target_bct", "split"}
+REQUIRED_LINK_COLUMNS = {"protein_id", "compound_id", "transformed_score", "split"}
 VALID_SPLITS = ("train", "validation", "test")
 EMBEDDING_DIMS = {
     "protein": PROTEIN_EMBEDDING_DIM,
@@ -167,7 +167,7 @@ def load_training_inputs_from_splits(
     """Load authoritative train/validation/test files without resampling.
 
     ``column_names`` maps the canonical names ``protein_id``, ``compound_id``,
-    and ``target_bct`` to their names in the distributed CSV files. The split
+    and ``transformed_score`` to their names in the distributed CSV files. The split
     label is derived from the file itself and cannot be overridden by a CSV
     column.
     """
@@ -175,11 +175,11 @@ def load_training_inputs_from_splits(
     source_columns = {
         "protein_id": "protein_id",
         "compound_id": "compound_id",
-        "target_bct": "target_bct",
+        "transformed_score": "transformed_score",
     }
     if column_names:
         source_columns.update({key: str(value) for key, value in column_names.items()})
-    unknown = set(source_columns) - {"protein_id", "compound_id", "target_bct"}
+    unknown = set(source_columns) - {"protein_id", "compound_id", "transformed_score"}
     if unknown:
         raise ValueError(f"Unknown canonical column name(s): {sorted(unknown)}")
 
@@ -233,12 +233,12 @@ def validate_training_inputs(inputs: TrainingInputs) -> pd.DataFrame:
         compound_id = str(row["compound_id"])
         split = str(row["split"]).strip().lower()
         try:
-            target = float(row["target_bct"])
+            target = float(row["transformed_score"])
             if not np.isfinite(target):
                 raise ValueError("non-finite value")
         except (TypeError, ValueError) as error:
             errors.append(
-                {"row": int(index), "field": "target_bct", "identifier": "", "error": str(error)}
+                {"row": int(index), "field": "transformed_score", "identifier": "", "error": str(error)}
             )
         if split not in VALID_SPLITS:
             errors.append(
@@ -348,7 +348,7 @@ class BaCNetTrainingDataset(Dataset):
                 f"Invalid BaCNet input for {protein_id}/{compound_id}: "
                 f"expected {BACNET_INPUT_DIM}, got {features.numel()}"
             )
-        return features, torch.tensor(float(row["target_bct"]), dtype=torch.float32), int(row["_source_index"])
+        return features, torch.tensor(float(row["transformed_score"]), dtype=torch.float32), int(row["_source_index"])
 
 
 def create_dataloaders(
@@ -397,7 +397,7 @@ def make_synthetic_inputs(seed: int = 123) -> TrainingInputs:
                     "pair_id": f"synthetic_pair_{index}",
                     "protein_id": split_proteins[split][local_index % len(split_proteins[split])],
                     "compound_id": compound_ids[(offset // 6 + local_index // len(split_proteins[split])) % len(compound_ids)],
-                    "target_bct": float((index % 11) / 10),
+                    "transformed_score": float((index % 11) / 10),
                     "split": split,
                 }
             )

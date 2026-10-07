@@ -252,6 +252,28 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     print(f"#data after filtering: {len(df_f)}" )
     return df_f
 
+def add_filter_outcomes(df: pd.DataFrame) -> pd.DataFrame:
+    """Record the fixed PAINS/SA/QED decision for every valid molecule."""
+    result = df.copy()
+
+    def reasons(row: pd.Series) -> str:
+        failures = []
+        if bool(row["PAINS"]):
+            failures.append("PAINS")
+        if pd.isna(row["SA_score"]):
+            failures.append("invalid_SA_score")
+        elif float(row["SA_score"]) > SA_MAX:
+            failures.append(f"SA_score>{SA_MAX:g}")
+        if pd.isna(row["QED"]):
+            failures.append("invalid_QED")
+        elif float(row["QED"]) < QED_MIN:
+            failures.append(f"QED<{QED_MIN:g}")
+        return ";".join(failures)
+
+    result["Filter_failure_reason"] = result.apply(reasons, axis=1)
+    result["Filter_pass"] = result["Filter_failure_reason"].eq("")
+    return result
+
 def judge_admet_metric(value: Any, flag_threshold: float, alert_threshold: float) -> str:
     try:
         numeric_value = float(value)
@@ -576,6 +598,11 @@ def main() -> None:
 
     df_with_filters = add_filter_columns(df, pains_filter)
     summarize_filtering(df_with_filters)
+    df_with_filters = add_filter_outcomes(df_with_filters)
+
+    annotation_path = os.path.join(output_dir, "filter_annotations.csv")
+    df_with_filters.drop(columns=["ROMol"], errors="ignore").to_csv(annotation_path, index=False)
+    print(f"Saved filter annotations to: {annotation_path}")
 
     df_filtered = apply_filters(df_with_filters)
 

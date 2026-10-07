@@ -83,7 +83,7 @@ def main() -> None:
 
     manifest: dict[str, Any] = {
         "synthetic": bool(args.synthetic),
-        "target": "target_bct",
+        "target": "transformed_score",
         "model_seed": seed,
     }
     if args.synthetic:
@@ -129,7 +129,7 @@ def main() -> None:
     split_summary = (
         inputs.links.groupby("split", as_index=False)
         .agg(
-            pairs=("target_bct", "size"),
+            pairs=("transformed_score", "size"),
             proteins=("protein_id", "nunique"),
             compounds=("compound_id", "nunique"),
         )

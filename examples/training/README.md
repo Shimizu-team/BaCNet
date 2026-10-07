@@ -7,15 +7,21 @@ assignments are available from Zenodo:
 
 Large training files and embeddings are not stored directly in this Git
 repository. After downloading the deposited data, configure their local paths
-in `configs/train_example.yaml`. BaCNet reads the provided `target_bct` values
-directly and does not apply Box-Cox transformation, min-max scaling, clipping,
-or thresholding during training.
+in `configs/train_example.yaml`. BaCNet reads the provided `transformed_score`
+values directly and does not apply Box-Cox transformation, min-max scaling,
+clipping, or thresholding during training.
+
+In the data-construction workflow, `stitch_score` denotes the STITCH
+`combined_score` divided by 1000. Box-Cox transformation followed by min-max
+scaling produces `transformed_score`, which is the value deposited on Zenodo
+and consumed by the training code. `stitch_score` may be retained as provenance
+metadata but is not a required training column.
 
 Required links columns:
 
 - `protein_id`: key in the ESM-2 embedding dictionary
 - `compound_id`: common key in all three chemical embedding dictionaries
-- `target_bct`: finite, already transformed regression target
+- `transformed_score`: finite, already transformed regression target deposited on Zenodo
 - `split`: one of `train`, `validation`, or `test`
 
 The split strategy is leave-one-protein-out. Protein groups are assigned as a
@@ -30,9 +36,6 @@ groups are assigned to test, then 10% of the remaining groups are assigned to
 validation, using seed 123 for both operations. This gives approximately
 81%/9%/10% train/validation/test by protein-group count. The training CLI does
 not call this function because the supplied links are already split.
-
-Optional metadata columns such as `pair_id`, `tax_id`, and `species` are kept
-for traceability. Split assignment should be frozen before training.
 
 Embedding files must be PyTorch-serialized dictionaries with CPU-compatible
 values and the following dimensions:

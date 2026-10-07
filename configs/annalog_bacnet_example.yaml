@@ -1,0 +1,31 @@
+# First-generation ANNalog generation followed by BaCNet ranking of PBP1A.
+# Relative paths are resolved from the repository root.
+
+input_smiles: CN1CCN2C(C1)C3=CC=CC=C3CC4=CC=CC=C42
+output_dir: outputs/annalog_bacnet_mianserin
+conda_executable: conda
+
+environments:
+  annalog: annalog
+  morgan: morgan_fingerprint_env
+  chemberta: chemberta_env
+  chemical_checker: cc_env
+  bacnet: bacnet
+
+annalog:
+  vocab_path: PLACEHOLDER/path/to/stereo_experiment_vocab.pkl
+  checkpoint_path: PLACEHOLDER/path/to/Lev_extended.pt
+  seed: 42
+  generation_number: 1000
+  medium_temperature: 1.2
+  far_temperature: 1.5
+
+embeddings:
+  cc_param_dir: PLACEHOLDER/path/to/cc_param
+  chemberta_device: auto
+  chemberta_batch_size: 16
+
+bacnet:
+  protein_embedding: examples/target_protein/PBP_ecoli.pt
+  model: models/checkpoint.pt
+  ecdf: models/ecdf_bacnet_v1.npz

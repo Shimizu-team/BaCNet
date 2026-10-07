@@ -21,19 +21,13 @@ For iteration 2, the reported analysis includes medium and far runs for
 `1st_far_004` and `1st_medium_001`, and the medium run for
 `1st_medium_003`.
 
-The first-generation near run and `iteration2_medium003_far` were exploratory
-runs that were not included in the reported Figure 4 analysis. They are listed
-in `excluded_runs.csv` but are not required by the aggregation command.
-
 ## Selection interpretation
 
 The complex-structure calculations are used only to prioritize candidates that
-already have high BaCNet scores. A structurally plausible predicted pose is not
-experimental confirmation of binding, target engagement, or mechanism of
-action. Before the final release, `selection_manifest.csv` must be updated with
-the exact structure-prediction software/version, replicate or seed settings,
-and any quantitative or visual criteria actually used. Criteria that were not
-defined at the time of analysis must not be added retrospectively.
+already have high BaCNet scores. Predictions were generated with Boltz-2
+version 2.1.1. The structural criterion was qualitative: candidates showing a
+clear protein-ligand association in the predicted complex on visual inspection
+were selected.
 
 ## Chemical filters
 
@@ -52,7 +46,6 @@ BaCNet score.
 - `run_manifest.csv`: generation settings, parents, and source tables for the
   seven reported runs.
 - `selection_manifest.csv`: first-to-second iteration parent selection.
-- `excluded_runs.csv`: exploratory runs outside the reported Figure 4 scope.
 - `annalog_candidates.csv`: generated long-format output containing filter
   results, BaCNet scores, ranks, and selection status.
 - `run_summary.csv`: per-run generation, filter, scoring, and selection counts.
@@ -66,6 +59,21 @@ data-root/
 └── 260106_2nd_generation/
 ```
 
+## Run first-generation generation and BaCNet ranking
+
+The top-level wrapper runs the executable portion from Mianserin through
+first-generation medium/far generation, chemical filtering, three compound
+embeddings, PBP1A BaCNet inference, and ranking:
+
+```bash
+python src/run_annalog_bacnet.py \
+  --config configs/annalog_bacnet_example.yaml
+```
+
+Set the local ANNalog checkpoint, vocabulary, and Chemical Checker parameter
+paths in the configuration before running. `--resume` reuses completed stages,
+and `--dry-run` prints all cross-environment commands without executing them.
+
 ## Rebuild the combined table
 
 ```bash
@@ -76,14 +84,3 @@ python src/aggregate_annalog_results.py \
   --output examples/annalog_workflow/annalog_candidates.csv \
   --summary-output examples/annalog_workflow/run_summary.csv
 ```
-
-The script removes non-portable serialized RDKit object strings, normalizes
-legacy identifiers such as `tensor(450)`, validates one-to-one compound IDs,
-retains filter failures, and assigns BaCNet ranks independently within each run.
-
-## ANNalog provenance
-
-The experiments were based on upstream ANNalog commit
-`0b2c21783749b8d1296efbb0263900c94a2c1a6f`, with local compatibility and CSV
-output changes. The final fork/release tag and a machine-readable patch against
-the upstream commit will be added when the publication release is prepared.

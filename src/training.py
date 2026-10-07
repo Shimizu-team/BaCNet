@@ -158,7 +158,7 @@ def train_model(
     test_metrics, predictions, targets, indices = _evaluate(model, test_loader, accelerator, criterion)
     if accelerator.is_main_process:
         predictions_frame = pd.DataFrame(
-            {"dataset_row": indices.astype(int), "target_bct": targets, "prediction": predictions}
+            {"dataset_row": indices.astype(int), "transformed_score": targets, "prediction": predictions}
         ).sort_values("dataset_row")
         predictions_frame.to_csv(output_dir / "test_predictions.csv", index=False)
         with (output_dir / "test_metrics.json").open("w", encoding="utf-8") as handle:
