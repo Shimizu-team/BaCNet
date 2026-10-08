@@ -59,6 +59,76 @@ data-root/
 └── 260106_2nd_generation/
 ```
 
+## Install the ANNalog version used in the reported analysis
+
+The reported analysis used ANNalog 0.5 from the official ANNalog repository at
+the following commit:
+
+```text
+https://github.com/DVNecromancer/ANNalog.git
+0b2c21783749b8d1296efbb0263900c94a2c1a6f
+```
+
+ANNalog 0.5 is not installed from PyPI by `environments/annalog.yml`. Create the
+recorded dependency environment, clone the upstream repository, check out the
+pinned commit, and install its `annalog_package` subdirectory:
+
+```bash
+conda env create -f environments/annalog.yml
+
+git clone https://github.com/DVNecromancer/ANNalog.git /path/to/ANNalog
+git -C /path/to/ANNalog checkout --detach \
+  0b2c21783749b8d1296efbb0263900c94a2c1a6f
+
+conda run --no-capture-output -n annalog \
+  python -m pip install --no-deps -e /path/to/ANNalog/annalog_package
+```
+
+`--no-deps` preserves the dependency versions recorded in
+`environments/annalog.yml`; in particular, that environment supplies
+`partialsmiles==2.0`.
+
+Verify the installed version and source location:
+
+```bash
+conda run -n annalog python - <<'PY'
+from pathlib import Path
+import annalog
+from importlib.metadata import version
+
+print("version:", version("annalog"))
+print("module:", Path(annalog.__file__).resolve())
+PY
+```
+
+The checkpoint and vocabulary used by the reported analysis are stored in the
+repository-level `ckpt_and_vocab` directory at that commit, rather than inside
+`annalog_package`:
+
+```text
+/path/to/ANNalog/ckpt_and_vocab/Lev_extended.pt
+/path/to/ANNalog/ckpt_and_vocab/stereo_experiment_vocab.pkl
+```
+
+Their expected SHA-256 digests are:
+
+```text
+9e22e755b5d47da3c678bc19073e4f4af12ae061c91a7e5382cea67e30fad97b  Lev_extended.pt
+a70ac489ae25d8a10584e640a3dfbf476e5a78eab48fc76e10dad75202bbcdff  stereo_experiment_vocab.pkl
+```
+
+Verify the files before running the workflow:
+
+```bash
+sha256sum \
+  /path/to/ANNalog/ckpt_and_vocab/Lev_extended.pt \
+  /path/to/ANNalog/ckpt_and_vocab/stereo_experiment_vocab.pkl
+```
+
+Finally, replace `/path/to/ANNalog` in
+`configs/annalog_bacnet_example.yaml` with the checkout path. Also set the
+Chemical Checker parameter directory in that configuration.
+
 ## Run first-generation generation and BaCNet ranking
 
 The top-level wrapper runs the executable portion from Mianserin through
@@ -70,9 +140,10 @@ python src/run_annalog_bacnet.py \
   --config configs/annalog_bacnet_example.yaml
 ```
 
-Set the local ANNalog checkpoint, vocabulary, and Chemical Checker parameter
-paths in the configuration before running. `--resume` reuses completed stages,
-and `--dry-run` prints all cross-environment commands without executing them.
+Set the pinned ANNalog checkpoint and vocabulary paths described above and the
+Chemical Checker parameter path in the configuration before running. `--resume`
+reuses completed stages, and `--dry-run` prints all cross-environment commands
+without executing them.
 
 ## Rebuild the combined table
 

@@ -168,6 +168,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default=DEVICE)
     parser.add_argument("--chemberta-batch-size", type=int, default=CHEMBERTA_BATCH_SIZE)
     parser.add_argument("--resume", action="store_true", help="Keep valid embeddings already present in output files.")
+    parser.add_argument(
+        "--skip-filters",
+        action="store_true",
+        help=(
+            "Generate embeddings for every valid input structure without applying "
+            "the PAINS/SA/QED filters. Use this for the deposited training dataset."
+        ),
+    )
     return parser.parse_args()
 
 # =============================================================================
@@ -579,6 +587,10 @@ def main() -> None:
     ensure_dir(emb_dir)
 
     df = pd.read_csv(args.input_csv)
+    # The deposited training dataset uses ChemID, whereas screening inputs use
+    # Compound_ID. Normalize the deposited schema without changing its IDs.
+    if NAME_COL not in df.columns and "ChemID" in df.columns:
+        df = df.rename(columns={"ChemID": NAME_COL})
     if NAME_COL not in df.columns or SMILES_COL not in df.columns:
         raise KeyError(
             f"Input CSV must contain columns '{NAME_COL}' and '{SMILES_COL}'. "
@@ -594,17 +606,28 @@ def main() -> None:
     if args.chemberta_batch_size < 1:
         raise ValueError("--chemberta-batch-size must be at least 1.")
 
-    pains_filter = build_pains_filter()
+    if args.skip_filters:
+        df_filtered = df.copy()
+        df_filtered["CanonSMILES"] = df_filtered[SMILES_COL].apply(canonicalize_smiles)
+        invalid = df_filtered["CanonSMILES"].isna()
+        if invalid.any():
+            logger.warning(
+                "Skipping %d compounds whose SMILES could not be canonicalized.",
+                int(invalid.sum()),
+            )
+            df_filtered = df_filtered.loc[~invalid].copy()
+        print("Chemical filters were skipped; generating embeddings for all valid input structures.")
+    else:
+        pains_filter = build_pains_filter()
+        df_with_filters = add_filter_columns(df, pains_filter)
+        summarize_filtering(df_with_filters)
+        df_with_filters = add_filter_outcomes(df_with_filters)
 
-    df_with_filters = add_filter_columns(df, pains_filter)
-    summarize_filtering(df_with_filters)
-    df_with_filters = add_filter_outcomes(df_with_filters)
+        annotation_path = os.path.join(output_dir, "filter_annotations.csv")
+        df_with_filters.drop(columns=["ROMol"], errors="ignore").to_csv(annotation_path, index=False)
+        print(f"Saved filter annotations to: {annotation_path}")
 
-    annotation_path = os.path.join(output_dir, "filter_annotations.csv")
-    df_with_filters.drop(columns=["ROMol"], errors="ignore").to_csv(annotation_path, index=False)
-    print(f"Saved filter annotations to: {annotation_path}")
-
-    df_filtered = apply_filters(df_with_filters)
+        df_filtered = apply_filters(df_with_filters)
 
     if args.admet_ai_csv:
         print("Applying ADMET-AI annotations and filtering...")

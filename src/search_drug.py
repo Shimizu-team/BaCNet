@@ -9,7 +9,7 @@ from model import create_dataloader_search_drugs, create_BaCNet, search_drug
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL_PATH = REPOSITORY_ROOT / "models" / "checkpoint.pt"
+DEFAULT_MODEL_PATH = REPOSITORY_ROOT / "models" / "checkpoint_ecoli.pt"
 DEFAULT_ECDF_PATH = REPOSITORY_ROOT / "models" / "ecdf_bacnet_v1.npz"
 
 def fix_seeds(seed=123):

@@ -80,6 +80,11 @@ If you want to generate **ChemicalChecker (CC) / Signaturizer** embeddings local
 BaCNet uses ten Chemical Checker spaces: **A1–A5 and B1–B5**. The remaining
 spaces are not required for BaCNet inference.
 
+The Chemical Checker Signaturizer parameter archives used in this study were
+downloaded from the `current` endpoint on 2025-08-13. The `current` endpoint is
+retained below because the parameter archives could not be retrieved
+successfully through the date-specific endpoint.
+
 **1) Download the ten required model archives (A1–A5 and B1–B5)**
 
 Run the following in any working directory:
@@ -201,9 +206,19 @@ An example is provided at `examples/target_protein/PBP_ecoli.pt`.
 
 ### Run BaCNet
 
+Two species-held-out model checkpoints are provided:
+
+- `models/checkpoint_ecoli.pt`: trained without *E. coli* K-12 CPIs and used for
+  species-held-out inference on *E. coli* targets, including the PBP1A case study.
+- `models/checkpoint_paeruginosa.pt`: trained without *P. aeruginosa* CPIs and
+  used for species-held-out inference on *P. aeruginosa* targets.
+
+The *E. coli*-held-out checkpoint is the default model used by the screening
+CLI and the ANNalog workflow example.
+
 ```bash
 python src/search_drug.py \
-    --model models/checkpoint.pt \
+    --model models/checkpoint_ecoli.pt \
     --ecdf models/ecdf_bacnet_v1.npz \
     --protein examples/target_protein/PBP_ecoli.pt \
     --chemical examples/chemical_library \
@@ -212,7 +227,7 @@ python src/search_drug.py \
 
 `search_drug.py` CLI arguments
 
-- `--model` (optional): Path to the trained model checkpoint (default: `models/checkpoint.pt`).
+- `--model` (optional): Path to the trained model checkpoint (default: `models/checkpoint_ecoli.pt`).
 - `--ecdf` (optional): Path to the frozen ECDF reference file (default: `models/ecdf_bacnet_v1.npz`).
 - `--protein` (required): Path to the target protein embedding file.
 - `--chemical` (required): Base path to the chemical vector files.
@@ -270,10 +285,10 @@ input, script, or expected-output artifact for that result.
 | --- | --- | --- | --- |
 | Figure 1: BaCNet training and evaluation using the fixed protein-disjoint splits | Zenodo dataset ([10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)); schema and split contract in `examples/training/README.md` | `src/train.py`, `src/training.py`, `src/training_data.py`, and model definition in `src/model.py` | `configs/train_example.yaml`; `environments/bacnet.yml` |
 | Supplementary Table 6: baseline and five architecture-ablation models | Zenodo ablation split files; expected filenames, row counts, and SHA-256 digests in `examples/ablation/README.md` and `examples/ablation/data_files.sha256` | `src/ablation_models.py`, `src/train_ablation.py`, `src/training.py`, and `src/training_data.py` | `configs/ablation.yaml`; `environments/bacnet.yml`; model seed 123 |
-| Figures 2–3: BaCNet scoring of the mianserin–*E. coli* PBP1A case study | Mianserin SMILES in `examples/example_mols.csv`; PBP1A embedding in `examples/target_protein/PBP_ecoli.pt`; compound embeddings in `examples/chemical_library/` | `src/chemical_embedding.py`, `src/esm_embedding.py`, and `src/search_drug.py` | `models/checkpoint.pt`; `models/ecdf_bacnet_v1.npz`; embedding environments in `environments/` |
+| Figures 2–3: BaCNet scoring of the mianserin–*E. coli* PBP1A case study | Mianserin SMILES in `examples/example_mols.csv`; PBP1A embedding in `examples/target_protein/PBP_ecoli.pt`; compound embeddings in `examples/chemical_library/` | `src/chemical_embedding.py`, `src/esm_embedding.py`, and `src/search_drug.py` | `models/checkpoint_ecoli.pt`; `models/ecdf_bacnet_v1.npz`; embedding environments in `environments/` |
 | Figure 3, Figure 4c–e, and Supplementary Figures 9–10: Boltz-2 complex predictions | YAML inputs in `examples/structural_analysis/boltz2/inputs/figure3/` and `examples/structural_analysis/boltz2/inputs/figure4_figureS9_S10/` | `examples/structural_analysis/boltz2/run_boltz_predict.sh` | Boltz-2 2.1.1 settings and the figure-to-input map in `examples/structural_analysis/boltz2/README.md` |
 | Figure 4: ANNalog expansion, chemical filtering, selection, and BaCNet-score aggregation | `examples/annalog_workflow/run_manifest.csv`, `selection_manifest.csv`, and the external experiment directories described in `examples/annalog_workflow/README.md` | `src/run_annalog_bacnet.py` for first-generation medium/far generation and ranking; `src/aggregate_annalog_results.py` for the reported two-generation aggregation | `configs/annalog_bacnet_example.yaml`; separate ANNalog, embedding, and BaCNet environments in `environments/`; reported settings and seeds in `run_manifest.csv` |
-| External 15-target benchmark | Source dataset: Wong *et al.* (2022), [doi:10.15252/msb.202211081](https://doi.org/10.15252/msb.202211081); RpoB (`P0A8V2`) and RpoC (`P0A8T7`) excluded, leaving 15 targets | No source-data transformation script; the explicit exclusion rule is documented in `examples/external_datasets/README.md` | Source article and exclusion list define the evaluated target set |
+| External 15-target benchmark | `examples/external_datasets/external_benchmark_targets.csv`; source dataset: Wong *et al.* (2022), [doi:10.15252/msb.202211081](https://doi.org/10.15252/msb.202211081) | No source-data transformation script; RpoB (`P0A8V2`) and RpoC (`P0A8T7`) are marked as excluded in the target list | Gene names, UniProt accessions, and inclusion status in `external_benchmark_targets.csv`; protein sequences can be retrieved using the listed UniProt accessions |
 | BindingDB quantitative-affinity comparison | `BindingDB_All_202609_tsv.zip`, obtained separately; construction criteria in `examples/external_datasets/README.md` | `src/prepare_bindingdb.py` | `environments/bacnet.yml`; reference UniProt canonical sequences were retrieved on 2026-09-23 |
 | DrugBank approved-compound screening library | DrugBank 5.1.12 XML obtained separately under an Academic License; construction criteria in `examples/external_datasets/README.md` | `src/prepare_drugbank.py` | `environments/bacnet.yml`; RDKit PAINS A/B/C catalogs |
 
@@ -312,6 +327,7 @@ bacnet/
 │
 ├── examples/               # Example inputs and reported-workflow manifests
 │   ├── annalog_workflow/   # Figure 4 aggregation and traceability files
+│   ├── annalog_demo/       # Fixed 30-compound medium-run scoring demo
 │   ├── ablation/           # Supplementary Table 6 reproduction protocol
 │   ├── external_datasets/  # BindingDB and DrugBank construction procedures
 │   ├── structural_analysis/ # Boltz-2 inputs and documented prediction settings
@@ -331,6 +347,126 @@ The curated BaCNet interaction dataset and its fixed training, validation, and
 test assignments are available from Zenodo:
 
 - **DOI:** [10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)
+
+### Download and place the deposited dataset
+
+From the repository root, download `BaCNet_dataset.zip` from Zenodo and extract
+it under `data/`:
+
+```bash
+mkdir -p data
+curl -L "https://zenodo.org/records/23158020/files/BaCNet_dataset.zip?download=1" \
+    -o data/BaCNet_dataset.zip
+unzip data/BaCNet_dataset.zip -d data
+```
+
+The resulting paths should have the following structure:
+
+```text
+data/BaCNet_dataset/
+├── training_dataset/
+│   ├── all_data/
+│   │   ├── protein_id_mapping.csv
+│   │   ├── compound_id_mapping.csv
+│   │   ├── all_links.csv
+│   │   └── species_summary.csv
+│   ├── training_dataset_ecoli_k12/
+│   │   ├── train_links.csv
+│   │   ├── validation_links.csv
+│   │   ├── test_links.csv
+│   │   └── links_ecol_k12.csv
+│   └── training_dataset_paeruginosa/
+│       ├── train_links.csv
+│       ├── validation_links.csv
+│       ├── test_links.csv
+│       └── links_pseudomonas.csv
+└── ablation_dataset/
+    ├── protein_id_mapping.csv
+    ├── compound_id_mapping.csv
+    ├── train_links.csv
+    ├── validation_links.csv
+    └── test_links.csv
+```
+
+`training_dataset_ecoli_k12` contains the fixed train/validation/test data used
+to train the *E. coli* K-12 species-held-out model: *E. coli* K-12 proteins are
+excluded from these three training partitions, and `links_ecol_k12.csv` contains
+the external species-held-out evaluation pairs. Likewise,
+`training_dataset_paeruginosa` excludes *P. aeruginosa* proteins from its
+train/validation/test partitions, and `links_pseudomonas.csv` contains the
+corresponding species-held-out evaluation pairs.
+
+The downloaded dataset and generated embeddings are ignored by Git and should
+remain under `data/BaCNet_dataset/`; they must not be committed to the source-code
+repository.
+
+### Generate embeddings from the deposited mappings
+
+The protein and compound mapping tables in `training_dataset/all_data/` contain
+the unique amino-acid sequences and SMILES used by both species-held-out
+datasets. Generate the 5,120-dimensional ESM-2 protein embeddings as follows:
+
+```bash
+conda env create -f environments/esm.yml
+
+conda run --no-capture-output -n esm_env \
+  python src/esm_embedding.py \
+    --input data/BaCNet_dataset/training_dataset/all_data/protein_id_mapping.csv \
+    --id-column ProteinID \
+    --sequence-column sequence \
+    --output data/BaCNet_dataset/embeddings/protein_esm2.pt \
+    --model-path /path/to/esm2_t48_15B_UR50D.pt \
+    --device cuda \
+    --batch-size 1 \
+    --max-length 1022 \
+    --long-sequence-policy error
+```
+
+The compound mapping table uses `ChemID` and `SMILES`. The embedding script
+accepts this deposited schema directly. Use `--skip-filters` because the
+deposited mappings define the compounds in the fixed training datasets; PAINS,
+SA, and QED screening must not be reapplied when regenerating their embeddings.
+The three compound representations require separate version-locked environments:
+
+```bash
+conda env create -f environments/morgan-fingerprint.yml
+conda env create -f environments/chemical-checker.yml
+conda env create -f environments/chemberta.yml
+
+# 1,024-dimensional Morgan fingerprints
+conda run --no-capture-output -n morgan_fingerprint_env \
+  python src/chemical_embedding.py \
+    --input_csv data/BaCNet_dataset/training_dataset/all_data/compound_id_mapping.csv \
+    --output-dir data/BaCNet_dataset/embeddings \
+    --methods morgan \
+    --skip-filters
+
+# 1,280-dimensional Chemical Checker signatures
+conda run --no-capture-output -n cc_env \
+  python src/chemical_embedding.py \
+    --input_csv data/BaCNet_dataset/training_dataset/all_data/compound_id_mapping.csv \
+    --output-dir data/BaCNet_dataset/embeddings \
+    --methods chemical_checker \
+    --cc-param-dir /path/to/CC_param \
+    --skip-filters
+
+# 384-dimensional ChemBERTa embeddings
+conda run --no-capture-output -n chemberta_env \
+  python src/chemical_embedding.py \
+    --input_csv data/BaCNet_dataset/training_dataset/all_data/compound_id_mapping.csv \
+    --output-dir data/BaCNet_dataset/embeddings \
+    --methods chemberta \
+    --device cuda \
+    --chemberta-batch-size 16 \
+    --skip-filters
+```
+
+The generated files are written to
+`data/BaCNet_dataset/embeddings/Chemical_embeddings/` as
+`morgan_fingerprint.pt`, `chemical_checker.pt`, and `chemberta-2.pt`. The ESM-2
+output is written to `data/BaCNet_dataset/embeddings/protein_esm2.pt`. Embedding
+generation is computationally intensive; use `--resume` to continue an
+interrupted compound-embedding run without discarding valid existing vectors.
 
 1. Training data were constructed from compound-protein interaction pairs obtained from STITCH (version 5.0). Data corresponding to ESKAPEE bacteria were extracted on the basis of taxonomy IDs (Supplementary Table 21). Protein identifiers were then mapped to the corresponding proteins in STRING (version 10.0).
 2. For each compound, canonical SMILES was generated using RDKit.
@@ -445,11 +581,16 @@ selected as parents for second-generation expansion.
 
 ### Run the first generation from Mianserin to BaCNet ranking
 
-Edit `configs/annalog_bacnet_example.yaml` to specify the ANNalog checkpoint,
-ANNalog vocabulary, and Chemical Checker parameter directory. Then run:
+Install ANNalog 0.5 from the pinned upstream Git commit and verify its bundled
+checkpoint and vocabulary as described in
+`examples/annalog_workflow/README.md`. Then edit
+`configs/annalog_bacnet_example.yaml` to specify that checkout's ANNalog
+checkpoint and vocabulary and the Chemical Checker parameter directory. Run the
+wrapper from an environment containing PyYAML, such as the BaCNet environment:
 
 ```bash
-python src/run_annalog_bacnet.py \
+conda run --no-capture-output -n bacnet \
+  python src/run_annalog_bacnet.py \
     --config configs/annalog_bacnet_example.yaml
 ```
 
@@ -464,6 +605,26 @@ manifest are written below the configured `output_dir`.
 This wrapper intentionally stops after first-generation ranking. Selection of
 parents for the second generation used complementary complex-structure
 assessment and is not automated.
+
+### Run the fixed 30-compound scoring demonstration
+
+`examples/annalog_demo` packages the first 30 filter-passing compounds from the
+first-generation medium run and their three chemical embeddings. It can be
+scored directly with the E. coli-held-out checkpoint:
+
+```bash
+conda run --no-capture-output -n bacnet \
+  python src/search_drug.py \
+    --model models/checkpoint_ecoli.pt \
+    --ecdf models/ecdf_bacnet_v1.npz \
+    --protein examples/target_protein/PBP_ecoli.pt \
+    --chemical examples/annalog_demo/embeddings \
+    --output outputs/annalog_demo
+```
+
+See `examples/annalog_demo/README.md` for the data contract, reference scores,
+checksums, and the automated 20- and 30-compound equivalence checks. These demo
+scores use the E. coli-held-out checkpoint and are not the Figure 4 scores.
 
 Build the combined long-format table from the archived experiment directories:
 

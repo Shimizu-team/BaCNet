@@ -109,11 +109,13 @@ The external benchmark dataset was obtained from Wong *et al.*,
 discovery,” *Molecular Systems Biology* **18**, MSB202211081 (2022),
 [doi:10.15252/msb.202211081](https://doi.org/10.15252/msb.202211081).
 
-The BaCNet evaluation excluded the following two proteins from the source
-benchmark:
+The source benchmark comprised 17 *E. coli* K-12 protein targets. The BaCNet
+evaluation excluded the following two proteins:
 
 - RpoB (`rpoB`; UniProt `P0A8V2`)
 - RpoC (`rpoC`; UniProt `P0A8T7`)
 
 The remaining 15 targets constitute the external benchmark reported in this
-study.
+study. The complete list of gene names, UniProt accessions, and inclusion status
+is provided in `external_benchmark_targets.csv`. Protein sequences can be
+retrieved using the corresponding UniProt accessions.

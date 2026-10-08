@@ -13,8 +13,10 @@ environments:
   bacnet: bacnet
 
 annalog:
-  vocab_path: PLACEHOLDER/path/to/stereo_experiment_vocab.pkl
-  checkpoint_path: PLACEHOLDER/path/to/Lev_extended.pt
+  # Clone ANNalog at the pinned commit documented in
+  # examples/annalog_workflow/README.md, then replace /path/to/ANNalog below.
+  vocab_path: /path/to/ANNalog/ckpt_and_vocab/stereo_experiment_vocab.pkl
+  checkpoint_path: /path/to/ANNalog/ckpt_and_vocab/Lev_extended.pt
   seed: 42
   generation_number: 1000
   medium_temperature: 1.2
@@ -27,5 +29,5 @@ embeddings:
 
 bacnet:
   protein_embedding: examples/target_protein/PBP_ecoli.pt
-  model: models/checkpoint.pt
+  model: models/checkpoint_ecoli.pt
   ecdf: models/ecdf_bacnet_v1.npz

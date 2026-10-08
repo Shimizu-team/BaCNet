@@ -159,7 +159,7 @@ def main() -> None:
     generation_number = int(annalog.get("generation_number", 1000))
     cc_param_dir = _path(_required(embeddings, "cc_param_dir", "embeddings"))
     protein_embedding = _path(_required(bacnet, "protein_embedding", "bacnet"))
-    model_path = _path(bacnet.get("model", "models/checkpoint.pt"))
+    model_path = _path(bacnet.get("model", "models/checkpoint_ecoli.pt"))
     ecdf_path = _path(bacnet.get("ecdf", "models/ecdf_bacnet_v1.npz"))
 
     resolved_config = output_dir / "config.resolved.yaml"

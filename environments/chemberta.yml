@@ -325,6 +325,7 @@ dependencies:
   - qt-main=5.15.2
   - qt-webengine=5.15.9
   - qtwebkit=5.212
+  - rdkit=2024.03.5
   - re2=2022.04.01
   - readline=8.2
   - referencing=0.33.0

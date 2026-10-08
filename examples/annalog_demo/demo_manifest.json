@@ -1,0 +1,72 @@
+{
+  "description": "First 30 filter-passing compounds from ANNalog medium generation 1",
+  "selection_rule": "first 30 rows of filtered_data.csv in source order",
+  "compound_count": 30,
+  "compound_ids": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "22",
+    "23",
+    "24",
+    "25",
+    "26",
+    "28",
+    "29",
+    "30",
+    "31"
+  ],
+  "score_reference": "Scores produced while evaluating the complete 694-compound medium library with the E. coli-held-out checkpoint",
+  "sources": {
+    "filtered_data.csv": "bbf518e6008a739f5ba280f07416b61e2a0b33f58ee4bbcd430b7cb1dd4f49f5",
+    "data_with_filters.csv": "a8514fd6bfc37bc4576e4517bff0a7721960663c5db21dbae755565d8207c56b",
+    "P02918_screening_score.csv": "1931203a866734e00962f89e0078da15676eeb2a7c03680772021d9ace12e27c"
+  },
+  "references": {
+    "checkpoint_ecoli.pt": "5b3d30c84776d7dc4c0c12c9bc01ff06d2aa89c0851696d64f51fbb18efbd474",
+    "ecdf_bacnet_v1.npz": "7007f813e1d28e463d26173c98693f9f2f3fb8ea6df8941350b94ef284f2a591",
+    "PBP_ecoli.pt": "496a8432d39ad1d15639c8ee0164978ceaf3c7fbb8f20e190a9bf09a6861ee77"
+  },
+  "embeddings": {
+    "morgan_fingerprint.pt": {
+      "dimension": 1024,
+      "count": 30,
+      "sha256": "146bf82b43de18980fb32b36574c148fe673670d4a1074e2c0f189821fae513d"
+    },
+    "chemical_checker.pt": {
+      "dimension": 1280,
+      "count": 30,
+      "sha256": "e2bfbe6d0a8812c83e385a1c0fee6a42415df7a926b8ade6bb1869171a8723e8"
+    },
+    "chemberta-2.pt": {
+      "dimension": 384,
+      "count": 30,
+      "sha256": "8896499148a87ad22b6ec7ae7ffe3dde4ed9ddaec428b0518ccf7b77e3147846"
+    }
+  },
+  "outputs": {
+    "compounds.csv": "00bd7cd1a5605d4469472bf32c07118c1ed544ee67be2b4e6b45182e03c0f6d7",
+    "embeddings/morgan_fingerprint.pt": "146bf82b43de18980fb32b36574c148fe673670d4a1074e2c0f189821fae513d",
+    "embeddings/chemical_checker.pt": "e2bfbe6d0a8812c83e385a1c0fee6a42415df7a926b8ade6bb1869171a8723e8",
+    "embeddings/chemberta-2.pt": "8896499148a87ad22b6ec7ae7ffe3dde4ed9ddaec428b0518ccf7b77e3147846",
+    "expected/P02918_screening_score.csv": "dc03b6d88457bd9c009f327e9c2f594bbcf15f520f481188690fb24202f277d4"
+  }
+}

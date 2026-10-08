@@ -204,5 +204,6 @@ dependencies:
   - zlib=1.3.1
   - zstd=1.5.7
   - pip:
-      - annalog==0.5
+      # ANNalog 0.5 is installed from the pinned upstream Git commit after
+      # creating this environment. See examples/annalog_workflow/README.md.
       - partialsmiles==2.0

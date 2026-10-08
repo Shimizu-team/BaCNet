@@ -24,3 +24,8 @@ Create the required environment from the repository root. For example:
 conda env create -f environments/bacnet.yml
 conda activate bacnet
 ```
+
+The ANNalog environment requires one post-creation installation step because
+the reported ANNalog 0.5 code was installed from a pinned upstream Git commit,
+not from PyPI. Follow the clone, checkout, installation, and checkpoint/vocabulary
+verification instructions in `examples/annalog_workflow/README.md`.
