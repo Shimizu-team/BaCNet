@@ -19,8 +19,8 @@ The files contain 4,000,000 training pairs, 200,000 validation pairs, and
 
 The distributed files use these columns:
 
-- `ProteinID`: key in the ESM-2 embedding dictionary
-- `ChemID`: shared key in the three chemical embedding dictionaries
+- `ProteinID`: protein identifier in BaCNet format
+- `ChemID`: chemical identifier in BaCNet format
 - `transformed_score`: prepared regression target used directly by BaCNet
 
 The column mapping is explicit in `configs/ablation.yaml`. The program adds the
@@ -49,11 +49,10 @@ each architecture is constructed, the Python, NumPy, PyTorch, CUDA, and
 DataLoader random states are reset to this seed. This ensures a reproducible
 single-run comparison using the same supplied data and training order.
 
-Every architecture is trained for exactly 50 epochs; early stopping is not
-used. The checkpoint with the lowest validation loss across the 50 epochs is
+Every architecture is trained for exactly 50 epochs. The checkpoint with the lowest validation loss across the 50 epochs is
 then loaded for held-out test evaluation. Accordingly, `best_epoch` in
 `reported_results.csv` records the epoch of the selected validation-best
-checkpoint, not an early-stopping epoch.
+checkpoint.
 
 ## Run the experiment
 

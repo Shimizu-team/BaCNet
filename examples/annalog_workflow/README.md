@@ -50,14 +50,6 @@ BaCNet score.
   results, BaCNet scores, ranks, and selection status.
 - `run_summary.csv`: per-run generation, filter, scoring, and selection counts.
 
-Source paths in `run_manifest.csv` are relative to a data root that contains
-the two experiment directories:
-
-```text
-data-root/
-├── 251209_bacnet_outputs_1st_generation/
-└── 260106_2nd_generation/
-```
 
 ## Install the ANNalog version used in the reported analysis
 
@@ -129,10 +121,10 @@ Finally, replace `/path/to/ANNalog` in
 `configs/annalog_bacnet_example.yaml` with the checkout path. Also set the
 Chemical Checker parameter directory in that configuration.
 
-## Run first-generation generation and BaCNet ranking
+## Run generation generation and BaCNet ranking
 
 The top-level wrapper runs the executable portion from Mianserin through
-first-generation medium/far generation, chemical filtering, three compound
+generation medium/far generation, chemical filtering, three compound
 embeddings, PBP1A BaCNet inference, and ranking:
 
 ```bash

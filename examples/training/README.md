@@ -19,16 +19,10 @@ metadata but is not a required training column.
 
 Required links columns:
 
-- `protein_id`: key in the ESM-2 embedding dictionary
-- `compound_id`: common key in all three chemical embedding dictionaries
+- `protein_id`: protein identifier in BaCNet format
+- `compound_id`: chemical identifier in BaCNet format
 - `transformed_score`: finite, already transformed regression target deposited on Zenodo
 - `split`: one of `train`, `validation`, or `test`
-
-Surrounding whitespace in split labels is removed and labels are normalized to
-lowercase before validation. Duplicate `protein_id`-`compound_id` pairs are
-rejected regardless of whether a `pair_id` column is present. Because
-`transformed_score` is a min-max-normalized target, values outside `[0, 1]`
-are rejected rather than clipped.
 
 The split strategy is leave-one-protein-out. Protein groups are assigned as a
 unit, so a protein group must never occur in more than one split. If different
@@ -40,8 +34,7 @@ For transparency, `reference_leave_one_protein_out_split()` in
 `src/training_data.py` records the original procedure: 10% of unique protein
 groups are assigned to test, then 10% of the remaining groups are assigned to
 validation, using seed 123 for both operations. This gives approximately
-81%/9%/10% train/validation/test by protein-group count. The training CLI does
-not call this function because the supplied links are already split.
+81%/9%/10% train/validation/test by protein-group count.
 
 Embedding files must be PyTorch-serialized dictionaries with CPU-compatible
 values and the following dimensions:

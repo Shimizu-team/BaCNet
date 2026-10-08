@@ -19,9 +19,7 @@ precomputed embeddings.
   checksums for source, reference, and packaged files.
 
 The expected scores were extracted from a run that scored the complete
-694-compound medium library with `models/checkpoint_ecoli.pt`. They are intended
-to verify that subsetting and packaging do not change inference. They are **not**
-the Figure 4 scores, which were generated with the study's main checkpoint.
+694-compound medium library with `models/checkpoint_ecoli.pt`.
 
 ## Run the demonstration
 
@@ -45,11 +43,3 @@ compounds:
 ```bash
 python -m unittest tests.test_annalog_demo
 ```
-
-## Maintainer-only rebuild
-
-The packaged files can be regenerated from the trusted original medium-run
-directory and the full-library score file with `src/prepare_annalog_demo.py`.
-Legacy Chemical Checker files can contain NumPy arrays and therefore require
-the explicit `--trust-legacy-pickle` option. Do not use that option for an
-untrusted `.pt` file.

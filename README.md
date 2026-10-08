@@ -498,13 +498,6 @@ separate `environments/esm.yml` environment containing `fair-esm`; `fairscale`
 is additionally needed only for `--backend fsdp`. This separation avoids the
 dependency conflicts between BaCNet training and embedding generation.
 
-Training links require the following columns:
-
-- `protein_id`: key in the ESM-2 embedding dictionary
-- `compound_id`: shared key in all chemical embedding dictionaries
-- `transformed_score`: the Box-Cox-transformed and min-max-scaled target deposited on Zenodo and used directly for training
-- `split`: fixed assignment of `train`, `validation`, or `test`
-
 When retained for provenance, `stitch_score` denotes the original STITCH
 `combined_score` divided by 1,000. It is not read by the training program.
 
