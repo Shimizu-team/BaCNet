@@ -11,7 +11,8 @@ This repository provides tools for:
 - Running inference for CPI prediction
 - Scoring compounds
 - Searching and ranking candidate molecules
-- Reconstructing the reported two-stage ANNalog/BaCNet prioritization workflow
+- Executing one ANNalog generation/filtering/BaCNet-ranking cycle and tracing
+  the reported two-stage prioritization results
 
 ---
 
@@ -272,8 +273,8 @@ input, script, or expected-output artifact for that result.
 | Figures 2–3: BaCNet scoring of the mianserin–*E. coli* PBP1A case study | Mianserin SMILES in `examples/example_mols.csv`; PBP1A embedding in `examples/target_protein/PBP_ecoli.pt`; compound embeddings in `examples/chemical_library/` | `src/chemical_embedding.py`, `src/esm_embedding.py`, and `src/search_drug.py` | `models/checkpoint.pt`; `models/ecdf_bacnet_v1.npz`; embedding environments in `environments/` |
 | Figure 3, Figure 4c–e, and Supplementary Figures 9–10: Boltz-2 complex predictions | YAML inputs in `examples/structural_analysis/boltz2/inputs/figure3/` and `examples/structural_analysis/boltz2/inputs/figure4_figureS9_S10/` | `examples/structural_analysis/boltz2/run_boltz_predict.sh` | Boltz-2 2.1.1 settings and the figure-to-input map in `examples/structural_analysis/boltz2/README.md` |
 | Figure 4: ANNalog expansion, chemical filtering, selection, and BaCNet-score aggregation | `examples/annalog_workflow/run_manifest.csv`, `selection_manifest.csv`, and the external experiment directories described in `examples/annalog_workflow/README.md` | `src/run_annalog_bacnet.py` for first-generation medium/far generation and ranking; `src/aggregate_annalog_results.py` for the reported two-generation aggregation | `configs/annalog_bacnet_example.yaml`; separate ANNalog, embedding, and BaCNet environments in `environments/`; reported settings and seeds in `run_manifest.csv` |
-| External 15-target benchmark | Not deposited in the current repository | Not deposited in the current repository | Not deposited in the current repository |
-| BindingDB quantitative-affinity comparison | `BindingDB_All_202609_tsv.zip`, obtained separately; construction criteria in `examples/external_datasets/README.md` | `src/prepare_bindingdb.py` | `environments/bacnet.yml`; current UniProt canonical sequences are retrieved through the UniProt REST API |
+| External 15-target benchmark | Source dataset: Wong *et al.* (2022), [doi:10.15252/msb.202211081](https://doi.org/10.15252/msb.202211081); RpoB (`P0A8V2`) and RpoC (`P0A8T7`) excluded, leaving 15 targets | No source-data transformation script; the explicit exclusion rule is documented in `examples/external_datasets/README.md` | Source article and exclusion list define the evaluated target set |
+| BindingDB quantitative-affinity comparison | `BindingDB_All_202609_tsv.zip`, obtained separately; construction criteria in `examples/external_datasets/README.md` | `src/prepare_bindingdb.py` | `environments/bacnet.yml`; reference UniProt canonical sequences were retrieved on 2026-09-23 |
 | DrugBank approved-compound screening library | DrugBank 5.1.12 XML obtained separately under an Academic License; construction criteria in `examples/external_datasets/README.md` | `src/prepare_drugbank.py` | `environments/bacnet.yml`; RDKit PAINS A/B/C catalogs |
 
 The training and ablation programs calculate SHA-256 checksums for supplied
@@ -334,7 +335,7 @@ test assignments are available from Zenodo:
 1. Training data were constructed from compound-protein interaction pairs obtained from STITCH (version 5.0). Data corresponding to ESKAPEE bacteria were extracted on the basis of taxonomy IDs (Supplementary Table 21). Protein identifiers were then mapped to the corresponding proteins in STRING (version 10.0).
 2. For each compound, canonical SMILES was generated using RDKit.
 3. Redundant records with duplicated sequence-compound pairs were removed.
-4. The STITCH `combined_score` was divided by 100 to obtain `stitch_score`.
+4. The STITCH `combined_score` was divided by 1,000 to obtain `stitch_score`.
 5. `stitch_score` was subjected to Box-Cox transformation and subsequently normalized to a range of [0, 1] using min-max scaling, yielding `transformed_score`, the target used for model training.
 
 The completed value from step 5 must be supplied in the `transformed_score`
@@ -369,7 +370,7 @@ Training links require the following columns:
 - `split`: fixed assignment of `train`, `validation`, or `test`
 
 When retained for provenance, `stitch_score` denotes the original STITCH
-`combined_score` divided by 1000. It is not read by the training program.
+`combined_score` divided by 1,000. It is not read by the training program.
 
 The dataset uses a **leave-one-protein-out** split. Unique protein groups are
 divided before interaction rows are selected: 10% of protein groups are first
@@ -401,7 +402,9 @@ accelerate launch src/train.py \
     --output-dir outputs/bacnet_training_01
 ```
 
-Before training, BaCNet validates IDs, finite values, splits, and dimensions
+Before training, BaCNet trims surrounding whitespace from split labels and
+normalizes them to lowercase. It validates IDs, duplicate protein-compound
+pairs, the `[0, 1]` target range, splits, finite values, and dimensions
 (5,120 + 1,024 + 1,280 + 384 = 7,808). Validation errors are written to
 `validation_report.csv`. Successful runs save the resolved configuration, input
 checksums, split summary, epoch metrics, best and last resumable checkpoints,
@@ -424,16 +427,19 @@ published train, validation, and test files directly.
 
 Each architecture is trained once using the fixed model seed `123`. The seed is
 reset before every architecture so that all models use the same supplied data
-and training order.
+and training order. Every architecture is trained for exactly 50 epochs without
+early stopping. The checkpoint with the lowest validation loss across those 50
+epochs is used for the held-out test evaluation.
 
 See `examples/ablation/README.md` and `configs/ablation.yaml` for the data
 contract, all architecture definitions, the complete command, and the reported
 metrics.
 
-## Reproduce the ANNalog expansion workflow
+## Execute one ANNalog expansion and ranking cycle
 
-The Figure 4 analog-expansion workflow is documented in
-`examples/annalog_workflow`. It records the ANNalog generation settings,
+The executable wrapper covers one complete generation, filtering, embedding,
+and BaCNet-ranking cycle. The reported two-stage Figure 4 analysis is traced in
+`examples/annalog_workflow`, which records the ANNalog generation settings,
 chemical filters, BaCNet scores, within-run ranks, and the three compounds
 selected as parents for second-generation expansion.
 

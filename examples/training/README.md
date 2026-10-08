@@ -12,7 +12,7 @@ values directly and does not apply Box-Cox transformation, min-max scaling,
 clipping, or thresholding during training.
 
 In the data-construction workflow, `stitch_score` denotes the STITCH
-`combined_score` divided by 1000. Box-Cox transformation followed by min-max
+`combined_score` divided by 1,000. Box-Cox transformation followed by min-max
 scaling produces `transformed_score`, which is the value deposited on Zenodo
 and consumed by the training code. `stitch_score` may be retained as provenance
 metadata but is not a required training column.
@@ -23,6 +23,12 @@ Required links columns:
 - `compound_id`: common key in all three chemical embedding dictionaries
 - `transformed_score`: finite, already transformed regression target deposited on Zenodo
 - `split`: one of `train`, `validation`, or `test`
+
+Surrounding whitespace in split labels is removed and labels are normalized to
+lowercase before validation. Duplicate `protein_id`-`compound_id` pairs are
+rejected regardless of whether a `pair_id` column is present. Because
+`transformed_score` is a min-max-normalized target, values outside `[0, 1]`
+are rejected rather than clipped.
 
 The split strategy is leave-one-protein-out. Protein groups are assigned as a
 unit, so a protein group must never occur in more than one split. If different

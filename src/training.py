@@ -77,7 +77,7 @@ def train_model(
     output_dir: Path,
     config: dict[str, Any],
     epochs: int,
-    patience: int,
+    patience: int | None,
     resume_path: str | None = None,
 ):
     criterion = torch.nn.MSELoss()
@@ -136,12 +136,15 @@ def train_model(
                 f"validation_loss={validation_metrics['loss']:.6f}"
             )
 
-        stop = torch.tensor(
-            int(epochs_without_improvement >= patience), device=accelerator.device, dtype=torch.int32
-        )
-        stop = accelerator.reduce(stop, reduction="max")
-        if int(stop.item()):
-            break
+        if patience is not None:
+            stop = torch.tensor(
+                int(epochs_without_improvement >= patience),
+                device=accelerator.device,
+                dtype=torch.int32,
+            )
+            stop = accelerator.reduce(stop, reduction="max")
+            if int(stop.item()):
+                break
 
     accelerator.wait_for_everyone()
     best_checkpoint_path = output_dir / "checkpoint_best.pt"

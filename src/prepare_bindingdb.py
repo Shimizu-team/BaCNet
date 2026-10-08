@@ -4,6 +4,9 @@
 The input is ``BindingDB_All_202609_tsv.zip`` (or its extracted TSV). Ki, Kd,
 and IC50 are curated independently. Ligands are canonicalized with RDKit only;
 no desalting, neutralization, or tautomer standardization is performed.
+
+The UniProt canonical sequences used for the reported analysis were retrieved
+through the UniProt REST API on 2026-09-23.
 """
 
 from __future__ import annotations
@@ -67,7 +70,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True, help="BindingDB_All_202609_tsv.zip or TSV")
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--uniprot-cache", type=Path, default=None)
+    parser.add_argument(
+        "--uniprot-cache",
+        type=Path,
+        default=None,
+        help="Optional UniProt validation cache used to resume interrupted queries.",
+    )
     parser.add_argument("--chunk-size", type=int, default=100_000)
     parser.add_argument("--uniprot-batch-size", type=int, default=80)
     parser.add_argument("--timeout", type=int, default=60)

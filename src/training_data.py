@@ -33,6 +33,7 @@ EMBEDDING_DIMS = {
     "chemical_checker": CC_EMBEDDING_DIM,
     "chemberta": CHEMBERTA_EMBEDDING_DIM,
 }
+TARGET_RANGE_TOLERANCE = 1e-7
 
 
 @dataclass
@@ -42,6 +43,16 @@ class TrainingInputs:
     morgan: Dict[str, torch.Tensor]
     chemical_checker: Dict[str, torch.Tensor]
     chemberta: Dict[str, torch.Tensor]
+
+
+def normalize_split_labels(links: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy with whitespace-trimmed, lowercase split labels."""
+    result = links.copy()
+    if "split" in result.columns:
+        result["split"] = result["split"].map(
+            lambda value: value.strip().lower() if isinstance(value, str) else value
+        )
+    return result
 
 
 def protein_group_column(links: pd.DataFrame) -> str:
@@ -144,7 +155,7 @@ def load_training_inputs(
     links_file = Path(links_path)
     if not links_file.is_file():
         raise FileNotFoundError(f"links file not found: {links_file}")
-    links = pd.read_csv(links_file)
+    links = normalize_split_labels(pd.read_csv(links_file))
     return TrainingInputs(
         links=links,
         protein=load_embedding_dict(protein_path, "protein"),
@@ -202,7 +213,7 @@ def load_training_inputs_from_splits(
         frames.append(frame)
 
     return TrainingInputs(
-        links=pd.concat(frames, ignore_index=True),
+        links=normalize_split_labels(pd.concat(frames, ignore_index=True)),
         protein=load_embedding_dict(protein_path, "protein"),
         morgan=load_embedding_dict(morgan_path, "Morgan"),
         chemical_checker=load_embedding_dict(chemical_checker_path, "Chemical Checker"),
@@ -212,6 +223,10 @@ def load_training_inputs_from_splits(
 
 def validate_training_inputs(inputs: TrainingInputs) -> pd.DataFrame:
     """Return a row-level validation report. An empty report means valid."""
+    # Normalize harmless formatting differences before validation and loading so
+    # values such as " train " cannot pass validation and then disappear from a
+    # DataLoader selection.
+    inputs.links = normalize_split_labels(inputs.links)
     links = inputs.links
     errors: list[dict[str, object]] = []
     missing_columns = sorted(REQUIRED_LINK_COLUMNS - set(links.columns))
@@ -221,8 +236,6 @@ def validate_training_inputs(inputs: TrainingInputs) -> pd.DataFrame:
         )
 
     duplicate_pair_columns = ["protein_id", "compound_id"]
-    if "pair_id" in links.columns:
-        duplicate_pair_columns = ["pair_id"]
     for index in links.index[links.duplicated(duplicate_pair_columns, keep=False)]:
         errors.append(
             {"row": int(index), "field": "links", "identifier": "", "error": "duplicated training pair"}
@@ -236,6 +249,8 @@ def validate_training_inputs(inputs: TrainingInputs) -> pd.DataFrame:
             target = float(row["transformed_score"])
             if not np.isfinite(target):
                 raise ValueError("non-finite value")
+            if target < -TARGET_RANGE_TOLERANCE or target > 1.0 + TARGET_RANGE_TOLERANCE:
+                raise ValueError("expected a value in the normalized range [0, 1]")
         except (TypeError, ValueError) as error:
             errors.append(
                 {"row": int(index), "field": "transformed_score", "identifier": "", "error": str(error)}
@@ -300,7 +315,7 @@ def validate_training_inputs(inputs: TrainingInputs) -> pd.DataFrame:
                 "error": "protein group must not be empty",
             }
         )
-    normalized_split = links["split"].astype(str).str.lower()
+    normalized_split = links["split"].astype(str).str.strip().str.lower()
     groups_by_split = {
         split: set(links.loc[normalized_split == split, group_column].astype(str))
         for split in VALID_SPLITS
@@ -361,7 +376,8 @@ def create_dataloaders(
         raise ValueError("batch_size must be at least 2 because BaCNet uses BatchNorm.")
     generator = torch.Generator().manual_seed(seed)
     loaders: dict[str, DataLoader] = {}
-    normalized_split = inputs.links["split"].astype(str).str.lower()
+    inputs.links = normalize_split_labels(inputs.links)
+    normalized_split = inputs.links["split"].astype(str).str.strip().str.lower()
     for split in VALID_SPLITS:
         subset = inputs.links.loc[normalized_split == split].copy()
         loaders[split] = DataLoader(

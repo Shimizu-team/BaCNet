@@ -195,7 +195,7 @@ def main() -> None:
             output_dir=variant_dir,
             config=variant_config,
             epochs=int(training_config.get("epochs", 50)),
-            patience=int(training_config.get("patience", 50)),
+            patience=None,
         )
         validation_rows = [row for row in history if row["split"] == "validation"]
         best_validation = min(validation_rows, key=lambda row: float(row["loss"]))

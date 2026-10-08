@@ -6,8 +6,9 @@ source databases are not redistributed in this repository. Users must obtain
 them under the terms of their respective providers and run the preparation
 scripts locally.
 
-The scripts only canonicalize the supplied SMILES with RDKit. They do **not**
-desalt, neutralize, or perform tautomer standardization.
+Ligand preprocessing in both workflows is limited to parsing and isomeric
+canonical SMILES generation with RDKit. The scripts do not desalt, neutralize,
+or perform tautomer standardization.
 
 ## BindingDB
 
@@ -27,16 +28,16 @@ conditions are satisfied:
 3. the value is positive and finite, and its relation is exactly `=`;
 4. the target contains one protein chain;
 5. a UniProt accession and a BindingDB target sequence are available;
-6. the BindingDB sequence exactly matches the current UniProt canonical
-   sequence;
+6. the BindingDB sequence exactly matches the UniProt canonical sequence
+   retrieved on 2026-09-23;
 7. the target name does not indicate a mutant, variant, engineered protein,
    partial sequence, fragment, construct, or truncated protein; and
 8. the canonical protein sequence contains no more than 1,022 residues, which
    is the ESM-2 input limit used in this study.
 
 Ligand SMILES are parsed and converted to isomeric canonical SMILES with
-RDKit. Structures that RDKit cannot parse are excluded. No other chemical
-structure standardization is performed.
+RDKit. Structures that RDKit cannot parse are excluded. No desalting,
+neutralization, or tautomer standardization is performed.
 
 The measured value is converted to pAffinity as
 
@@ -45,14 +46,13 @@ pAffinity = 9 - log10(affinity in nM)
 ```
 
 Replicate measurements for the same UniProt accession, canonical SMILES, and
-endpoint are represented by the median pAffinity. Ki, Kd, and IC50 values are
-never pooled with one another.
+endpoint are represented by the median pAffinity. Ki, Kd, and IC50 remain
+separate throughout preparation and are never pooled with one another.
 
 ### Reproduction
 
-The script queries the UniProt REST API to retrieve current canonical
-sequences. Responses are cached in the output directory so that an interrupted
-run can resume without repeating completed queries.
+The reference analysis used UniProt canonical sequences retrieved through the
+UniProt REST API on 2026-09-23.
 
 ```bash
 python src/prepare_bindingdb.py \
@@ -84,8 +84,8 @@ The screening library is constructed as follows:
 5. apply all RDKit PAINS catalogs (PAINS A, PAINS B, and PAINS C) and remove
    every compound matching at least one catalog.
 
-Canonicalization is the only structure preprocessing step. The script does not
-desalt or neutralize compounds.
+The supplied structures are converted to isomeric canonical SMILES only. The
+script does not desalt, neutralize, or perform tautomer standardization.
 
 ### Reproduction
 
@@ -101,3 +101,19 @@ python src/prepare_drugbank.py \
 The resulting CSV contains the retained DrugBank identifier as `Compound_ID`
 and its canonical structure as `SMILES`, matching the BaCNet compound-input
 convention.
+
+## External 15-target benchmark
+
+The external benchmark dataset was obtained from Wong *et al.*,
+“Benchmarking AlphaFold-enabled molecular docking predictions for antibiotic
+discovery,” *Molecular Systems Biology* **18**, MSB202211081 (2022),
+[doi:10.15252/msb.202211081](https://doi.org/10.15252/msb.202211081).
+
+The BaCNet evaluation excluded the following two proteins from the source
+benchmark:
+
+- RpoB (`rpoB`; UniProt `P0A8V2`)
+- RpoC (`rpoC`; UniProt `P0A8T7`)
+
+The remaining 15 targets constitute the external benchmark reported in this
+study.

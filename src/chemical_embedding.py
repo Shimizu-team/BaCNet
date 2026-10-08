@@ -22,8 +22,8 @@ Assumptions about the input CSV:
 - Must contain columns: "Compound_ID" and "SMILES" (see NAME_COL / SMILES_COL below)
 
 Notes:
-- SA score uses the common RDKit Contrib implementation (SA_Score/sascorer.py) if available.
-  If unavailable, SA filtering is skipped while the script remains runnable.
+- SA score uses the bundled RDKit Contrib implementation
+  (`src/sascorer.py` and `src/fpscores.pkl.gz`).
 - Chemical Checker signatures require `signaturizer` and a local CC_param directory.
 - ChemBERTa requires `transformers` and will use GPU if available.
 """
@@ -232,15 +232,15 @@ def add_filter_columns(df: pd.DataFrame, pains_filter: FilterCatalog) -> pd.Data
 
 def summarize_filtering(df: pd.DataFrame) -> None:
     total = len(df)
-    pains_n = int((df["PAINS"] == False).sum())
-    sa_n = int((df["SA_score"] < SA_MAX).sum())
-    qed_n = int((df["QED"] > QED_MIN).sum())
+    pains_n = int(df["PAINS"].astype(bool).sum())
+    sa_n = int((df["SA_score"] <= SA_MAX).sum())
+    qed_n = int((df["QED"] >= QED_MIN).sum())
 
     print(f"#data before filtering: {total}")
     print(f"PAINS matches: {pains_n}/{total}")
 
-    print(f"SA_score < {SA_MAX:.2f}: {sa_n}/{total}")
-    print(f"QED > {QED_MIN:.2f}: {qed_n}/{total}")
+    print(f"SA_score <= {SA_MAX:.2f}: {sa_n}/{total}")
+    print(f"QED >= {QED_MIN:.2f}: {qed_n}/{total}")
 
 def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
     df_f = df.copy()

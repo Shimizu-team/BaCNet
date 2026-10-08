@@ -23,6 +23,7 @@ mkdir -p "$output_directory"
 
 boltz predict "$input_directory" \
   --use_potentials \
+  --use_msa_server \
   --diffusion_samples 5 \
   --recycling_steps 5 \
   --out_dir "$output_directory" \

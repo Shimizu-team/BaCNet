@@ -49,6 +49,12 @@ each architecture is constructed, the Python, NumPy, PyTorch, CUDA, and
 DataLoader random states are reset to this seed. This ensures a reproducible
 single-run comparison using the same supplied data and training order.
 
+Every architecture is trained for exactly 50 epochs; early stopping is not
+used. The checkpoint with the lowest validation loss across the 50 epochs is
+then loaded for held-out test evaluation. Accordingly, `best_epoch` in
+`reported_results.csv` records the epoch of the selected validation-best
+checkpoint, not an early-stopping epoch.
+
 ## Run the experiment
 
 Replace the placeholders in `configs/ablation.yaml`, or provide all paths on
