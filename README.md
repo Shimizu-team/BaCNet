@@ -287,7 +287,7 @@ input, script, or expected-output artifact for that result.
 | Supplementary Table 6: baseline and five architecture-ablation models | Zenodo ablation split files; expected filenames, row counts, and SHA-256 digests in `examples/ablation/README.md` and `examples/ablation/data_files.sha256` | `src/ablation_models.py`, `src/train_ablation.py`, `src/training.py`, and `src/training_data.py` | `configs/ablation.yaml`; `environments/bacnet.yml`; model seed 123 |
 | Figures 2–3: BaCNet scoring of the mianserin–*E. coli* PBP1A case study | Mianserin SMILES in `examples/example_mols.csv`; PBP1A embedding in `examples/target_protein/PBP_ecoli.pt`; compound embeddings in `examples/chemical_library/` | `src/chemical_embedding.py`, `src/esm_embedding.py`, and `src/search_drug.py` | `models/checkpoint_ecoli.pt`; `models/ecdf_bacnet_v1.npz`; embedding environments in `environments/` |
 | Figure 3, Figure 4c–e, and Supplementary Figures 9–10: Boltz-2 complex predictions | YAML inputs in `examples/structural_analysis/boltz2/inputs/figure3/` and `examples/structural_analysis/boltz2/inputs/figure4_figureS9_S10/` | `examples/structural_analysis/boltz2/run_boltz_predict.sh` | Boltz-2 2.1.1 settings and the figure-to-input map in `examples/structural_analysis/boltz2/README.md` |
-| Figure 4: ANNalog expansion, chemical filtering, selection, and BaCNet-score aggregation | `examples/annalog_workflow/run_manifest.csv`, `selection_manifest.csv`, and the external experiment directories described in `examples/annalog_workflow/README.md` | `src/run_annalog_bacnet.py` for first-generation medium/far generation and ranking; `src/aggregate_annalog_results.py` for the reported two-generation aggregation | `configs/annalog_bacnet_example.yaml`; separate ANNalog, embedding, and BaCNet environments in `environments/`; reported settings and seeds in `run_manifest.csv` |
+| Figure 4: ANNalog expansion, chemical filtering, selection, and BaCNet-score aggregation | `examples/annalog_workflow/run_manifest.csv`, `selection_manifest.csv`, and the filter and score tables under `examples/annalog_workflow/published_runs/` | `src/run_annalog_bacnet.py` for first-generation medium/far generation and ranking; `src/aggregate_annalog_results.py` for the reported two-generation aggregation | `configs/annalog_bacnet_example.yaml`; separate ANNalog, embedding, and BaCNet environments in `environments/`; reported settings and seeds in `run_manifest.csv` |
 | External 15-target benchmark | `examples/external_datasets/external_benchmark_targets.csv`; source dataset: Wong *et al.* (2022), [doi:10.15252/msb.202211081](https://doi.org/10.15252/msb.202211081) | No source-data transformation script; RpoB (`P0A8V2`) and RpoC (`P0A8T7`) are marked as excluded in the target list | Gene names, UniProt accessions, and inclusion status in `external_benchmark_targets.csv`; protein sequences can be retrieved using the listed UniProt accessions |
 | BindingDB quantitative-affinity comparison | `BindingDB_All_202609_tsv.zip`, obtained separately; construction criteria in `examples/external_datasets/README.md` | `src/prepare_bindingdb.py` | `environments/bacnet.yml`; reference UniProt canonical sequences were retrieved on 2026-09-23 |
 | DrugBank approved-compound screening library | DrugBank 5.1.12 XML obtained separately under an Academic License; construction criteria in `examples/external_datasets/README.md` | `src/prepare_drugbank.py` | `environments/bacnet.yml`; RDKit PAINS A/B/C catalogs |
@@ -619,15 +619,16 @@ See `examples/annalog_demo/README.md` for the data contract, reference scores,
 checksums, and the automated 20- and 30-compound equivalence checks. These demo
 scores use the E. coli-held-out checkpoint and are not the Figure 4 scores.
 
-Build the combined long-format table from the archived experiment directories:
+Rebuild the combined long-format table for all seven reported runs from the
+published filter and BaCNet-score tables:
 
 ```bash
 python src/aggregate_annalog_results.py \
     --manifest examples/annalog_workflow/run_manifest.csv \
     --selection examples/annalog_workflow/selection_manifest.csv \
-    --data-root /path/to/ANNalog-results \
-    --output examples/annalog_workflow/annalog_candidates.csv \
-    --summary-output examples/annalog_workflow/run_summary.csv
+    --data-root examples/annalog_workflow \
+    --output outputs/annalog_candidates.csv \
+    --summary-output outputs/annalog_run_summary.csv
 ```
 
 The reported workflow includes the first-generation medium/far runs and five

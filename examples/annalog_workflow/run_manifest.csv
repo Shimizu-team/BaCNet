@@ -1,8 +1,8 @@
-run_id,iteration,parent_id,parent_smiles,generation_class,generation_method,temperature,seed,included_in_figure
-iteration1_medium,1,mianserin,CN1CCN2C(C1)C3=CC=CC=C3CC4=CC=CC=C42,medium,sampling,1.2,42,TRUE
-iteration1_far,1,mianserin,CN1CCN2C(C1)C3=CC=CC=C3CC4=CC=CC=C42,far,sampling,1.5,42,TRUE
-iteration2_far004_medium,2,1st_far_004,CN1C(=O)CN2C(C1)C1=CC=CC=C3CC4=CC=CC=C4C=C3OC=C12,medium,sampling,1.2,42,TRUE
-iteration2_far004_far,2,1st_far_004,CN1C(=O)CN2C(C1)C1=CC=CC=C3CC4=CC=CC=C4C=C3OC=C12,far,sampling,1.5,42,TRUE
-iteration2_medium001_medium,2,1st_medium_001,C1[C@H](N2C(CC)C3=CC=CC=C3CC4=CC(=O)C=C42)CCCC1,medium,sampling,1.2,42,TRUE
-iteration2_medium001_far,2,1st_medium_001,C1[C@H](N2C(CC)C3=CC=CC=C3CC4=CC(=O)C=C42)CCCC1,far,sampling,1.5,42,TRUE
-iteration2_medium003_medium,2,1st_medium_003,Brc1ccc2c(c1)Cc1c(cc(O)cc1OC)C2,medium,sampling,1.2,42,TRUE
+run_id,iteration,parent_id,parent_smiles,generation_class,generation_method,temperature,seed,filter_csv,bacnet_csv,included_in_figure
+iteration1_medium,1,mianserin,CN1CCN2C(C1)C3=CC=CC=C3CC4=CC=CC=C42,medium,sampling,1.2,42,published_runs/iteration1_medium/filter_results.csv,published_runs/iteration1_medium/bacnet_scores.csv,TRUE
+iteration1_far,1,mianserin,CN1CCN2C(C1)C3=CC=CC=C3CC4=CC=CC=C42,far,sampling,1.5,42,published_runs/iteration1_far/filter_results.csv,published_runs/iteration1_far/bacnet_scores.csv,TRUE
+iteration2_far004_medium,2,1st_far_004,CN1C(=O)CN2C(C1)C1=CC=CC=C3CC4=CC=CC=C4C=C3OC=C12,medium,sampling,1.2,42,published_runs/iteration2_far004_medium/filter_results.csv,published_runs/iteration2_far004_medium/bacnet_scores.csv,TRUE
+iteration2_far004_far,2,1st_far_004,CN1C(=O)CN2C(C1)C1=CC=CC=C3CC4=CC=CC=C4C=C3OC=C12,far,sampling,1.5,42,published_runs/iteration2_far004_far/filter_results.csv,published_runs/iteration2_far004_far/bacnet_scores.csv,TRUE
+iteration2_medium001_medium,2,1st_medium_001,C1[C@H](N2C(CC)C3=CC=CC=C3CC4=CC(=O)C=C42)CCCC1,medium,sampling,1.2,42,published_runs/iteration2_medium001_medium/filter_results.csv,published_runs/iteration2_medium001_medium/bacnet_scores.csv,TRUE
+iteration2_medium001_far,2,1st_medium_001,C1[C@H](N2C(CC)C3=CC=CC=C3CC4=CC(=O)C=C42)CCCC1,far,sampling,1.5,42,published_runs/iteration2_medium001_far/filter_results.csv,published_runs/iteration2_medium001_far/bacnet_scores.csv,TRUE
+iteration2_medium003_medium,2,1st_medium_003,Brc1ccc2c(c1)Cc1c(cc(O)cc1OC)C2,medium,sampling,1.2,42,published_runs/iteration2_medium003_medium/filter_results.csv,published_runs/iteration2_medium003_medium/bacnet_scores.csv,TRUE

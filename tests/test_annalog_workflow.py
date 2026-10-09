@@ -13,6 +13,29 @@ from aggregate_annalog_results import aggregate_annalog_results
 
 
 class ANNalogWorkflowTest(unittest.TestCase):
+    def test_published_runs_reaggregate_without_external_data(self):
+        workflow = ROOT / "examples" / "annalog_workflow"
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "combined.csv"
+            summary_path = Path(directory) / "summary.csv"
+            output = aggregate_annalog_results(
+                workflow / "run_manifest.csv",
+                workflow,
+                output_path,
+                workflow / "selection_manifest.csv",
+                summary_path,
+            )
+            rebuilt = pd.read_csv(output_path)
+            archived = pd.read_csv(workflow / "annalog_candidates.csv")
+            pd.testing.assert_frame_equal(rebuilt, archived, check_dtype=False)
+            rebuilt_summary = pd.read_csv(summary_path)
+            archived_summary = pd.read_csv(workflow / "run_summary.csv")
+            pd.testing.assert_frame_equal(rebuilt_summary, archived_summary, check_dtype=False)
+        self.assertEqual(len(output), 6987)
+        self.assertEqual(int(output["filter_pass"].sum()), 4594)
+        self.assertEqual(int(output["bacnet_score"].notna().sum()), 4594)
+        self.assertEqual(float(output["bacnet_score"].max()), 1.064542293548584)
+
     def test_aggregate_retains_filter_failures_and_selection(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -49,6 +49,10 @@ BaCNet score.
 - `annalog_candidates.csv`: generated long-format output containing filter
   results, BaCNet scores, ranks, and selection status.
 - `run_summary.csv`: per-run generation, filter, scoring, and selection counts.
+- `published_runs/<run_id>/`: date-independent filter and BaCNet score tables
+  for all seven reported runs. The tables contain only the columns consumed by
+  the aggregation script; RDKit object representations and machine-specific
+  paths are omitted.
 
 
 ## Install the ANNalog version used in the reported analysis
@@ -121,7 +125,7 @@ Finally, replace `/path/to/ANNalog` in
 `configs/annalog_bacnet_example.yaml` with the checkout path. Also set the
 Chemical Checker parameter directory in that configuration.
 
-## Run generation generation and BaCNet ranking
+## Run generation and BaCNet ranking
 
 The top-level wrapper runs the executable portion from Mianserin through
 generation medium/far generation, chemical filtering, three compound
@@ -139,11 +143,15 @@ without executing them.
 
 ## Rebuild the combined table
 
+The complete historical two-generation result table is retained in
+`annalog_candidates.csv`. All seven reported runs can be re-aggregated without
+an external experiment directory:
+
 ```bash
 python src/aggregate_annalog_results.py \
   --manifest examples/annalog_workflow/run_manifest.csv \
   --selection examples/annalog_workflow/selection_manifest.csv \
-  --data-root /path/to/ANNalog-results \
-  --output examples/annalog_workflow/annalog_candidates.csv \
-  --summary-output examples/annalog_workflow/run_summary.csv
+  --data-root examples/annalog_workflow \
+  --output outputs/annalog_candidates.csv \
+  --summary-output outputs/annalog_run_summary.csv
 ```
