@@ -3,7 +3,7 @@
 The curated interaction dataset and its fixed training, validation, and test
 assignments are available from Zenodo:
 
-- **DOI:** [10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)
+- **DOI:** [10.5281/zenodo.23241408](https://doi.org/10.5281/zenodo.23241408)
 
 Large training files and embeddings are not stored directly in this Git
 repository. After downloading the deposited data, configure their local paths

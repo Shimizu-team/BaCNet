@@ -12,7 +12,7 @@ splits, or recreate the split.
 
 The deposited dataset is available from Zenodo:
 
-- **DOI:** [10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)
+- **DOI:** [10.5281/zenodo.23241408](https://doi.org/10.5281/zenodo.23241408)
 
 The files contain 4,000,000 training pairs, 200,000 validation pairs, and
 200,000 test pairs.

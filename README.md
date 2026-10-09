@@ -283,7 +283,7 @@ input, script, or expected-output artifact for that result.
 
 | Reported result | Input data and identifiers | Script or implementation | Configuration and environment |
 | --- | --- | --- | --- |
-| Figure 1: BaCNet training and evaluation using the fixed protein-disjoint splits | Zenodo dataset ([10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)); schema and split contract in `examples/training/README.md` | `src/train.py`, `src/training.py`, `src/training_data.py`, and model definition in `src/model.py` | `configs/train_example.yaml`; `environments/bacnet.yml` |
+| Figure 1: BaCNet training and evaluation using the fixed protein-disjoint splits | Zenodo dataset ([10.5281/zenodo.23241408](https://doi.org/10.5281/zenodo.23241408)); schema and split contract in `examples/training/README.md` | `src/train.py`, `src/training.py`, `src/training_data.py`, and model definition in `src/model.py` | `configs/train_example.yaml`; `environments/bacnet.yml` |
 | Supplementary Table 6: baseline and five architecture-ablation models | Zenodo ablation split files; expected filenames, row counts, and SHA-256 digests in `examples/ablation/README.md` and `examples/ablation/data_files.sha256` | `src/ablation_models.py`, `src/train_ablation.py`, `src/training.py`, and `src/training_data.py` | `configs/ablation.yaml`; `environments/bacnet.yml`; model seed 123 |
 | Figures 2–3: BaCNet scoring of the mianserin–*E. coli* PBP1A case study | Mianserin SMILES in `examples/example_mols.csv`; PBP1A embedding in `examples/target_protein/PBP_ecoli.pt`; compound embeddings in `examples/chemical_library/` | `src/chemical_embedding.py`, `src/esm_embedding.py`, and `src/search_drug.py` | `models/checkpoint_ecoli.pt`; `models/ecdf_bacnet_v1.npz`; embedding environments in `environments/` |
 | Figure 3, Figure 4c–e, and Supplementary Figures 9–10: Boltz-2 complex predictions | YAML inputs in `examples/structural_analysis/boltz2/inputs/figure3/` and `examples/structural_analysis/boltz2/inputs/figure4_figureS9_S10/` | `examples/structural_analysis/boltz2/run_boltz_predict.sh` | Boltz-2 2.1.1 settings and the figure-to-input map in `examples/structural_analysis/boltz2/README.md` |
@@ -346,7 +346,7 @@ bacnet/
 The curated BaCNet interaction dataset and its fixed training, validation, and
 test assignments are available from Zenodo:
 
-- **DOI:** [10.5281/zenodo.23158020](https://doi.org/10.5281/zenodo.23158020)
+- **DOI:** [10.5281/zenodo.23241408](https://doi.org/10.5281/zenodo.23241408)
 
 ### Download and place the deposited dataset
 
@@ -355,7 +355,7 @@ it under `data/`:
 
 ```bash
 mkdir -p data
-curl -L "https://zenodo.org/records/23158020/files/BaCNet_dataset.zip?download=1" \
+curl -L "https://zenodo.org/records/23241408/files/BaCNet_dataset.zip?download=1" \
     -o data/BaCNet_dataset.zip
 unzip data/BaCNet_dataset.zip -d data
 ```
