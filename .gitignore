@@ -1,3 +1,22 @@
 __pycache__/
 *.py[cod]
 .DS_Store
+
+
+# Downloaded datasets
+/data/
+
+# External model parameters
+/cc_param/
+/chemical_checker_params/
+/A[1-5].tar.gz
+/B[1-5].tar.gz
+
+# Generated files
+/embeddings/
+/outputs/
+/audit_logs/
+
+# Interrupted downloads
+*.download
+*.incomplete-*
