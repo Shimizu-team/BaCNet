@@ -97,8 +97,7 @@ dependencies:
   - python=3.7.12
   - python-dateutil=2.9.0
   - python_abi=3.7
-  - pytorch=1.9.0
-  - pytorch-cpu=1.1.0
+  - pytorch=1.9.0=py3.7_cpu_0
   - pytorch-mutex=1.0
   - pytz=2024.2
   - rdkit=2022.09.1

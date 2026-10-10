@@ -25,10 +25,11 @@ conda env create -f environments/bacnet.yml
 conda activate bacnet
 ```
 
-Compound and protein embeddings and ANNalog generation use separate Conda
-environments because their dependency requirements conflict. These environments
-are needed only when regenerating the corresponding intermediate data; they are
-not required when using the published embeddings from Zenodo.
+Compound and protein embeddings, RDKit-dependent data preparation, and ANNalog
+generation use separate Conda environments because their dependency
+requirements conflict. These additional environments are needed only when
+regenerating the corresponding intermediate data; they are not required when
+using the published embeddings from Zenodo for BaCNet inference.
 
 | Task | Environment file | Conda environment |
 | --- | --- | --- |
@@ -37,6 +38,7 @@ not required when using the published embeddings from Zenodo.
 | Chemical Checker embeddings | `environments/chemical-checker.yml` | `cc_env` |
 | ESM protein embeddings | `environments/esm.yml` | `esm_env` |
 | Morgan fingerprints | `environments/morgan-fingerprint.yml` | `morgan_fingerprint_env` |
+| Standalone RDKit preprocessing and chemical filtering | `environments/chemical_filters.yml` | `chemical_filters` |
 | ANNalog compound generation | `environments/annalog.yml` | `annalog` |
 
 For example, to regenerate ESM embeddings:
@@ -51,10 +53,17 @@ environment.
 
 ⸻
 
-Core dependencies
+Principal dependencies across the task-specific environments
 
-- Python 3.9.18
-- 	PyTorch
+`environments/bacnet.yml` intentionally contains the BaCNet training and
+inference stack but does not contain RDKit. Use `chemical_filters` for the
+standalone BindingDB and DrugBank preparation scripts. The ANNalog wrapper uses
+the RDKit installation in `morgan_fingerprint_env` for compound preparation and
+the Morgan/filtering stage before handing the generated files to the other
+embedding environments.
+
+- Python (version pinned per environment; core BaCNet uses 3.9.18)
+- PyTorch
 - NumPy
 - Pandas
 - RDKit
@@ -62,6 +71,38 @@ Core dependencies
 - Signaturizer
 - tqdm
 - admet-ai
+
+### Run the automated tests
+
+The test suite spans two environments because RDKit is intentionally separated
+from the core BaCNet environment. Run the 13 core training, inference, and
+aggregation tests in `bacnet`:
+
+```bash
+conda run --no-capture-output -n bacnet \
+  python -m unittest \
+    tests/test_ablation.py \
+    tests/test_annalog_demo.py \
+    tests/test_annalog_workflow.py \
+    tests/test_training_data.py \
+    -v
+```
+
+Run the 11 RDKit-dependent preparation, filtering, and workflow tests in
+`morgan_fingerprint_env`, which contains both RDKit and PyTorch:
+
+```bash
+conda run --no-capture-output -n morgan_fingerprint_env \
+  python -m unittest \
+    tests/test_annalog_bacnet_pipeline.py \
+    tests/test_chemical_embedding.py \
+    tests/test_external_dataset_preparation.py \
+    -v
+```
+
+Running unrestricted test discovery in `bacnet` alone will report import errors
+for the RDKit-dependent modules; use the two commands above to execute all 24
+tests in their documented environments.
 
 ⸻
 
@@ -289,8 +330,8 @@ input, script, or expected-output artifact for that result.
 | Figure 3, Figure 4c–e, and Supplementary Figures 9–10: Boltz-2 complex predictions | YAML inputs in `examples/structural_analysis/boltz2/inputs/figure3/` and `examples/structural_analysis/boltz2/inputs/figure4_figureS9_S10/` | `examples/structural_analysis/boltz2/run_boltz_predict.sh` | Boltz-2 2.1.1 settings and the figure-to-input map in `examples/structural_analysis/boltz2/README.md` |
 | Figure 4: ANNalog expansion, chemical filtering, selection, and BaCNet-score aggregation | `examples/annalog_workflow/run_manifest.csv`, `selection_manifest.csv`, and the filter and score tables under `examples/annalog_workflow/published_runs/` | `src/run_annalog_bacnet.py` for first-generation medium/far generation and ranking; `src/aggregate_annalog_results.py` for the reported two-generation aggregation | `configs/annalog_bacnet_example.yaml`; separate ANNalog, embedding, and BaCNet environments in `environments/`; reported settings and seeds in `run_manifest.csv` |
 | External 15-target benchmark | `examples/external_datasets/external_benchmark_targets.csv`; source dataset: Wong *et al.* (2022), [doi:10.15252/msb.202211081](https://doi.org/10.15252/msb.202211081) | No source-data transformation script; RpoB (`P0A8V2`) and RpoC (`P0A8T7`) are marked as excluded in the target list | Gene names, UniProt accessions, and inclusion status in `external_benchmark_targets.csv`; protein sequences can be retrieved using the listed UniProt accessions |
-| BindingDB quantitative-affinity comparison | `BindingDB_All_202609_tsv.zip`, obtained separately; construction criteria in `examples/external_datasets/README.md` | `src/prepare_bindingdb.py` | `environments/bacnet.yml`; reference UniProt canonical sequences were retrieved on 2026-09-23 |
-| DrugBank approved-compound screening library | DrugBank 5.1.12 XML obtained separately under an Academic License; construction criteria in `examples/external_datasets/README.md` | `src/prepare_drugbank.py` | `environments/bacnet.yml`; RDKit PAINS A/B/C catalogs |
+| BindingDB quantitative-affinity comparison | `BindingDB_All_202609_tsv.zip`, obtained separately; construction criteria in `examples/external_datasets/README.md` | `src/prepare_bindingdb.py` | `environments/chemical_filters.yml`; reference UniProt canonical sequences were retrieved on 2026-09-23 |
+| DrugBank approved-compound screening library | DrugBank 5.1.12 XML obtained separately under an Academic License; construction criteria in `examples/external_datasets/README.md` | `src/prepare_drugbank.py` | `environments/chemical_filters.yml`; RDKit PAINS A/B/C catalogs |
 
 The training and ablation programs calculate SHA-256 checksums for supplied
 input files and store them in each run's `data_manifest.json`. The static
