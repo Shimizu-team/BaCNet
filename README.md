@@ -126,6 +126,15 @@ downloaded from the `current` endpoint on 2025-08-13. The `current` endpoint is
 retained below because the parameter archives could not be retrieved
 successfully through the date-specific endpoint.
 
+These parameter archives are external dependencies and are not redistributed
+in this repository. Store them outside the repository when possible; a local
+`cc_param/` directory is also ignored by Git. Because the `current` endpoint
+may change over time, newly generated Chemical Checker signatures are not
+guaranteed to be numerically identical to the historical signatures used in
+the reported analysis. The precomputed embeddings distributed with the
+examples are the authoritative inputs for reproducing their reported BaCNet
+scores.
+
 **1) Download the ten required model archives (A1–A5 and B1–B5)**
 
 Run the following in any working directory:
@@ -193,6 +202,12 @@ to `embeddings/filter_annotations.csv`.
 Compounds whose embedding generation failed are recorded in
 `embeddings/embedding_failures.csv`, including the embedding type and error
 message.
+
+For exact reproducibility, the input `SMILES` string is retained for Chemical
+Checker and ChemBERTa embedding generation. The RDKit-canonicalized
+`CanonSMILES` is used for structure validation and PAINS/SA/QED filtering.
+Equivalent SMILES can produce different ChemBERTa token sequences, whereas the
+Morgan implementation canonicalizes the molecule internally.
 
 `chemical_embedding.py` CLI arguments
 
@@ -393,12 +408,28 @@ test assignments are available from Zenodo:
 From the repository root, download `BaCNet_dataset.zip` from Zenodo and extract
 it under `data/`:
 
+- Expected size: `429137754` bytes
+- Expected MD5: `5ca29330db4ccb5e2d4287a31523aaa5`
+
 ```bash
 mkdir -p data
-curl -L "https://zenodo.org/records/23241408/files/BaCNet_dataset.zip?download=1" \
+curl --fail --location \
+    --retry 10 \
+    --retry-delay 10 \
+    --connect-timeout 30 \
+    "https://zenodo.org/records/23241408/files/BaCNet_dataset.zip?download=1" \
     -o data/BaCNet_dataset.zip
+
+test "$(stat -c '%s' data/BaCNet_dataset.zip)" = "429137754"
+echo "5ca29330db4ccb5e2d4287a31523aaa5  data/BaCNet_dataset.zip" | md5sum --check -
+unzip -t data/BaCNet_dataset.zip
 unzip data/BaCNet_dataset.zip -d data
 ```
+
+The size and checksum commands above use the GNU/Linux utilities available in
+the documented HPC environment. If a transfer is interrupted before reaching
+the expected size, restart the download rather than extracting the partial
+file.
 
 The resulting paths should have the following structure:
 
