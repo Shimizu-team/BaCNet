@@ -203,11 +203,6 @@ Compounds whose embedding generation failed are recorded in
 `embeddings/embedding_failures.csv`, including the embedding type and error
 message.
 
-For exact reproducibility, the input `SMILES` string is retained for Chemical
-Checker and ChemBERTa embedding generation. The RDKit-canonicalized
-`CanonSMILES` is used for structure validation and PAINS/SA/QED filtering.
-Equivalent SMILES can produce different ChemBERTa token sequences, whereas the
-Morgan implementation canonicalizes the molecule internally.
 
 `chemical_embedding.py` CLI arguments
 
