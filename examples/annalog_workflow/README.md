@@ -132,7 +132,7 @@ Chemical Checker parameter directory in that configuration.
 ## Run generation and BaCNet ranking
 
 The top-level wrapper runs the executable portion from Mianserin through
-generation medium/far generation, chemical filtering, three compound
+medium/far generation, chemical filtering, three compound
 embeddings, PBP1A BaCNet inference, and ranking:
 
 ```bash

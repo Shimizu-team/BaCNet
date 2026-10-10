@@ -20,7 +20,7 @@ Morgan fingerprint environment for compound preparation and filtering.
 | `chemical-checker.yml` | Chemical Checker embeddings | `cc_env` | Python 3.7.12, PyTorch 1.9.0 (CPU), TensorFlow 2.11.0, Signaturizer 1.1.14 |
 | `esm.yml` | ESM protein embeddings | `esm_env` | Python 3.9.17, PyTorch 1.11.0, CUDA Toolkit 11.3 |
 | `morgan-fingerprint.yml` | Morgan fingerprints | `morgan_fingerprint_env` | Python 3.8.19, RDKit 2024.03.2 |
-| `annalog.yml` | ANNalog compound generation | `annalog` | Python 3.9.25, PyTorch 2.5.1, CUDA 12.1 |
+| `annalog.yml` | ANNalog compound generation | `annalog` | Python 3.9.2, PyTorch 1.9.1 |
 | `chemical_filters.yml` | SMILES canonicalization, PAINS, SA score, and QED filtering | `chemical_filters` | Python 3.12.3, RDKit 2024.03.5 |
 
 Create the required environment from the repository root. For example:

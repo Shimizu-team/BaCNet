@@ -40,15 +40,15 @@ def load_chemical_vectors(base_path):
     """
     base_path: The path to the directory where chemical vectors are stored
     It is necessary to have the following vector files stored in this directory.
-    - morganfingerprint.pt
+    - morgan_fingerprint.pt
     - chemical_checker.pt
-    - chemberta.pt
+    - chemberta-2.pt
     """
     chem_vec = {}
 
     vec_morganfinger = torch.load(os.path.join(base_path, "morgan_fingerprint.pt"), torch.device("cpu"))
     chem_vec["mf"] = rm_empty_dict(vec_morganfinger)
-    print(f"# moragn: {len(vec_morganfinger.keys())}")
+    print(f"# morgan: {len(vec_morganfinger.keys())}")
 
 
     vec_cc = torch.load(os.path.join(base_path, "chemical_checker.pt"), torch.device("cpu"))

@@ -101,7 +101,7 @@ conda run --no-capture-output -n morgan_fingerprint_env \
 ```
 
 Running unrestricted test discovery in `bacnet` alone will report import errors
-for the RDKit-dependent modules; use the two commands above to execute all 24
+for the RDKit-dependent modules; use the two commands above to execute all 26
 tests in their documented environments.
 
 ⸻
@@ -113,7 +113,7 @@ tests in their documented environments.
 
 #### Download the required Chemical Checker Signaturizer parameters
 
-If you want to generate **ChemicalChecker (CC) / Signaturizer** embeddings locally, you need to download the CC model parameter archives first.
+If you want to generate **Chemical Checker (CC) / Signaturizer** embeddings locally, you need to download the CC model parameter archives first.
 
 - You can run the download as a batch job if you are in an HPC environment.
 - Runtime can vary depending on network and server load.

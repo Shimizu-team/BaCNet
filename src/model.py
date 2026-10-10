@@ -179,7 +179,7 @@ class BaCNet(nn.Module):
         dimension size of input data
     num_features:
         no. of nodes each layer.
-        designation no. of nodes by list which contains 3 elemens
+        designation no. of nodes by list which contains 3 elements
         ex) [1024,128,64]
     """
     def __init__(self, input_dim, num_features, dropout_rate=0.01):
