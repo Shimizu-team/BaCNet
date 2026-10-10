@@ -69,6 +69,10 @@ ANNalog 0.5 is not installed from PyPI by `environments/annalog.yml`. Create the
 recorded dependency environment, clone the upstream repository, check out the
 pinned commit, and install its `annalog_package` subdirectory:
 
+The environment file mirrors the upstream `seq2seq_environment.yml`, including
+PyTorch 1.9.1 and torchtext 0.10.1. The latter is required because ANNalog 0.5
+imports the legacy `Field` API from `torchtext.legacy`.
+
 ```bash
 conda env create -f environments/annalog.yml
 
