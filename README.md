@@ -75,7 +75,7 @@ embedding environments.
 ### Run the automated tests
 
 The test suite spans two environments because RDKit is intentionally separated
-from the core BaCNet environment. Run the 13 core training, inference, and
+from the core BaCNet environment. Run the 14 core training, inference, and
 aggregation tests in `bacnet`:
 
 ```bash
@@ -88,7 +88,7 @@ conda run --no-capture-output -n bacnet \
     -v
 ```
 
-Run the 11 RDKit-dependent preparation, filtering, and workflow tests in
+Run the 12 RDKit-dependent preparation, filtering, and workflow tests in
 `morgan_fingerprint_env`, which contains both RDKit and PyTorch:
 
 ```bash
