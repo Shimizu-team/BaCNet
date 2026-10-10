@@ -194,6 +194,15 @@ Compounds whose embedding generation failed are recorded in
 `embeddings/embedding_failures.csv`, including the embedding type and error
 message.
 
+The original `SMILES` value supplied in the input CSV is retained for Chemical
+Checker and ChemBERTa embedding generation. This preserves the exact molecular
+string representation used for the reported embeddings; equivalent SMILES can
+produce different ChemBERTa token sequences. The script also records an RDKit
+canonicalized representation in `CanonSMILES` for structure validation and
+PAINS/SA/QED filtering. Morgan fingerprints are invariant to this distinction
+because the Morgan implementation canonicalizes the input internally before
+fingerprint calculation.
+
 `chemical_embedding.py` CLI arguments
 
 - `--input_csv` (required): Path to the input CSV containing compounds. The CSV must include **Compound_ID** and **SMILES** columns.
@@ -282,7 +291,7 @@ Example input CSV to generate chemical embeddings:
 
 | Compound_ID | SMILES |
 | :---------- | :----- |
-| Mianserin | CN1CCN2C(C1)C3=CC=CC=C3CC4=CC=CC=C42 |
+| Mianserin | CN1CCN2C(C1)C1=CC=CC=C1CC1=CC=CC=C21 |
 
 Required columns:
 

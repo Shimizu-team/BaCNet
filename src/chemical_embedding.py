@@ -633,8 +633,11 @@ def main() -> None:
         print("Applying ADMET-AI annotations and filtering...")
         df_filtered = merge_admet_ai_results(df_filtered, args.admet_ai_csv, args.admet_filter)
 
-    # Every embedding method consumes exactly the same canonical SMILES.
-    df_filtered[SMILES_COL] = df_filtered["CanonSMILES"]
+    # Preserve the deposited/input SMILES for embedding generation. This is
+    # required to reproduce the reported ChemBERTa vectors because equivalent
+    # SMILES strings can tokenize differently. CanonSMILES remains available
+    # for RDKit-based structure validation and filtering; MorganFeaturizer also
+    # canonicalizes internally before calculating its fingerprint.
 
     # Save filtered CSV (drop RDKit Mol objects)
     filtered_csv_path = os.path.join(output_dir, "data_with_filters.csv")
@@ -684,7 +687,14 @@ def main() -> None:
         "input_csv": os.path.abspath(args.input_csv),
         "input_sha256": digest(args.input_csv),
         "compound_id_column": NAME_COL,
-        "smiles_source": "CanonSMILES",
+        "smiles_source": SMILES_COL,
+        "canonical_smiles_column": "CanonSMILES",
+        "smiles_handling": {
+            "chemical_checker": "input SMILES",
+            "chemberta": "input SMILES",
+            "morgan": "input SMILES canonicalized internally with RDKit",
+            "filters": "RDKit molecule parsed from CanonSMILES",
+        },
         "methods": args.methods,
         "dimensions": {"chemical_checker": 1280, "chemberta": 384, "morgan": 1024},
         "models": {

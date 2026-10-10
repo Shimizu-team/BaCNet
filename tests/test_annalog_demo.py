@@ -39,7 +39,7 @@ class TestBasicScreeningAssets(unittest.TestCase):
             [
                 {
                     "Compound_ID": "Mianserin",
-                    "SMILES": "CN1CCN2C(C1)C3=CC=CC=C3CC4=CC=CC=C42",
+                    "SMILES": "CN1CCN2C(C1)C1=CC=CC=C1CC1=CC=CC=C21",
                 }
             ],
         )
