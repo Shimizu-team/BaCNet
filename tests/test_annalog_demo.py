@@ -28,6 +28,36 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+class TestBasicScreeningAssets(unittest.TestCase):
+    def test_mianserin_input_matches_precomputed_embedding_ids(self):
+        compounds = pd.read_csv(
+            ROOT / "examples" / "example_mols.csv",
+            dtype={"Compound_ID": str},
+        )
+        self.assertEqual(
+            compounds.to_dict("records"),
+            [
+                {
+                    "Compound_ID": "Mianserin",
+                    "SMILES": "CN1CCN2C(C1)C3=CC=CC=C3CC4=CC=CC=C42",
+                }
+            ],
+        )
+
+        expected_ids = compounds["Compound_ID"].tolist()
+        library = ROOT / "examples" / "chemical_library"
+        for filename, dimension in EXPECTED_DIMENSIONS.items():
+            embeddings = torch.load(
+                library / filename,
+                map_location="cpu",
+                weights_only=True,
+            )
+            self.assertEqual(list(embeddings), expected_ids)
+            self.assertEqual(tuple(embeddings["Mianserin"].shape), (dimension,))
+            self.assertEqual(embeddings["Mianserin"].dtype, torch.float32)
+            self.assertTrue(torch.isfinite(embeddings["Mianserin"]).all())
+
+
 class TestANNalogDemoAssets(unittest.TestCase):
     def test_assets_and_manifest(self):
         compounds = pd.read_csv(DEMO / "compounds.csv", dtype={"Compound_ID": str})

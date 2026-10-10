@@ -280,10 +280,9 @@ python src/search_drug.py \
 
 Example input CSV to generate chemical embeddings:
 
-| Compound_ID | SMILES       |
-| :---------- | :----------- |
-| mol1 | CC(=O)O      |
-| mol2 | C1=CC=CC=C1  |
+| Compound_ID | SMILES |
+| :---------- | :----- |
+| Mianserin | CN1CCN2C(C1)C3=CC=CC=C3CC4=CC=CC=C42 |
 
 Required columns:
 
